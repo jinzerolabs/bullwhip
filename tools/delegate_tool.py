@@ -1081,6 +1081,237 @@ def _run_single_child(
         except Exception:
             logger.debug("Failed to close child agent after delegation")
 
+def _run_claude_cli_task(
+    task_index: int,
+    goal: str,
+    context: Optional[str],
+    parent_agent,
+    wall_clock_timeout: int = _DEFAULT_WALL_CLOCK_TIMEOUT,
+    model: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Run a task using Claude Code CLI as a subprocess worker.
+
+    Spawns ``claude --print --output-format stream-json --verbose --dangerously-skip-permissions``
+    and streams events back to the parent's progress display.
+
+    Strips ANTHROPIC_API_KEY / ANTHROPIC_TOKEN from the child env so Claude Code
+    falls back to its own keychain / OAuth authentication (which works) instead
+    of the possibly invalid env-var key.
+    """
+    import subprocess
+    import shutil
+
+    claude_bin = shutil.which("claude")
+    if not claude_bin:
+        return {
+            "task_index": task_index,
+            "status": "error",
+            "summary": None,
+            "error": "claude CLI not found in PATH. Install Claude Code first.",
+            "api_calls": 0,
+            "duration_seconds": 0,
+            "tool_trace": [],
+        }
+
+    workspace = _resolve_workspace_hint(parent_agent)
+
+    if context:
+        task_text = f"{goal}\n\nCONTEXT:\n{context}"
+    else:
+        task_text = goal
+
+    cmd = [
+        claude_bin,
+        "--print",
+        "--output-format", "stream-json",
+        "--verbose",
+        "--dangerously-skip-permissions",
+    ]
+    if workspace:
+        cmd.extend(["--add-dir", workspace])
+    if model:
+        cmd.extend(["--model", model])
+
+    # Strip invalid API key env vars so Claude Code falls back to keychain/OAuth
+    _STRIP_KEYS = {"ANTHROPIC_API_KEY", "ANTHROPIC_TOKEN"}
+    child_env = {k: v for k, v in os.environ.items() if k not in _STRIP_KEYS}
+
+    spinner = getattr(parent_agent, "_delegate_spinner", None)
+    parent_cb = getattr(parent_agent, "tool_progress_callback", None)
+    prefix = f"[{task_index + 1}] "
+    start_time = time.monotonic()
+    api_calls = [0]
+    tool_trace: List[Dict] = []
+    last_result = [""]
+    _done = [False]
+
+    def _relay(msg: str) -> None:
+        if spinner:
+            try:
+                spinner.print_above(f" {prefix}├─ {msg}")
+            except Exception:
+                pass
+        if parent_cb:
+            try:
+                parent_cb("subagent_progress", f"🔀 {prefix}{msg}")
+            except Exception:
+                pass
+
+    _relay("🚀 starting claude CLI worker...")
+
+    try:
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=child_env,
+            cwd=workspace or None,
+        )
+    except Exception as exc:
+        return {
+            "task_index": task_index,
+            "status": "error",
+            "summary": None,
+            "error": f"Failed to start claude CLI: {exc}",
+            "api_calls": 0,
+            "duration_seconds": 0,
+            "tool_trace": [],
+        }
+
+    def _kill_on_timeout() -> None:
+        """Kill subprocess when wall-clock timeout is exceeded."""
+        deadline = start_time + wall_clock_timeout
+        while not _done[0]:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                logger.warning(
+                    "[claude-cli-%d] wall-clock timeout after %ds",
+                    task_index, wall_clock_timeout,
+                )
+                _relay(f"⏰ timed out after {wall_clock_timeout}s — terminating")
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+                return
+            time.sleep(min(5.0, remaining))
+
+    _timer = threading.Thread(target=_kill_on_timeout, daemon=True)
+    _timer.start()
+
+    try:
+        proc.stdin.write(task_text)
+        proc.stdin.close()
+    except BrokenPipeError:
+        pass
+
+    _KEY_MAP = {
+        "Bash": "command", "WebFetch": "url", "WebSearch": "query",
+        "Read": "file_path", "Edit": "file_path", "Write": "file_path",
+        "Glob": "pattern", "Grep": "pattern", "Agent": "prompt",
+    }
+
+    for raw_line in proc.stdout:
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+
+        etype = event.get("type", "")
+
+        if etype == "assistant":
+            for block in event.get("message", {}).get("content", []):
+                btype = block.get("type", "")
+                if btype == "text":
+                    text = block.get("text", "").strip()
+                    if text:
+                        _relay(f"💬 {(text[:100] + '...') if len(text) > 100 else text}")
+                elif btype == "tool_use":
+                    tname = block.get("name", "?")
+                    tinput = block.get("input", {})
+                    key = _KEY_MAP.get(tname)
+                    action = ""
+                    if key and key in tinput:
+                        action = str(tinput[key])[:80]
+                    elif tinput:
+                        action = str(next(iter(tinput.values())))[:80]
+                    _relay(f"🔧 {tname}: {action}")
+                    api_calls[0] += 1
+                    tool_trace.append({"tool": tname, "action": action, "result_preview": None})
+
+        elif etype == "user":
+            # Tool results come back as user messages
+            for block in event.get("message", {}).get("content", []):
+                if block.get("type") == "tool_result":
+                    content = block.get("content", "")
+                    if isinstance(content, list):
+                        content = " ".join(
+                            b.get("text", "") for b in content
+                            if isinstance(b, dict) and b.get("type") == "text"
+                        )
+                    if tool_trace:
+                        tool_trace[-1]["result_preview"] = str(content)[:500]
+
+        elif etype == "result":
+            last_result[0] = event.get("result", "")
+
+    _done[0] = True
+    try:
+        proc.wait(timeout=30)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+    duration = round(time.monotonic() - start_time, 2)
+
+    # Detect auth errors in result
+    result_text = last_result[0] or ""
+    if "Invalid API key" in result_text or "authentication_failed" in result_text:
+        return {
+            "task_index": task_index,
+            "status": "error",
+            "summary": None,
+            "error": (
+                "Claude CLI authentication failed. "
+                "The ANTHROPIC_API_KEY env var was stripped but Claude Code still "
+                "could not authenticate. Run 'claude auth' to re-authenticate."
+            ),
+            "api_calls": api_calls[0],
+            "duration_seconds": duration,
+            "tool_trace": tool_trace,
+        }
+
+    timed_out_flag = (
+        duration >= wall_clock_timeout - 1 and not result_text
+    )
+    if timed_out_flag:
+        return {
+            "task_index": task_index,
+            "status": "timed_out",
+            "summary": result_text or "Timed out",
+            "error": f"Timed out after {wall_clock_timeout}s",
+            "api_calls": api_calls[0],
+            "duration_seconds": duration,
+            "tool_trace": tool_trace,
+        }
+
+    return {
+        "task_index": task_index,
+        "status": "completed" if proc.returncode == 0 else "failed",
+        "summary": result_text,
+        "error": None if proc.returncode == 0 else f"Exit code {proc.returncode}",
+        "api_calls": api_calls[0],
+        "duration_seconds": duration,
+        "tool_trace": tool_trace,
+    }
+
+
 def delegate_task(
     goal: Optional[str] = None,
     context: Optional[str] = None,
@@ -1194,6 +1425,87 @@ def delegate_task(
     # Track goal labels for progress display (truncated for readability)
     task_labels = [t["goal"][:40] for t in task_list]
 
+    # Resolve wall-clock timeout once for all children
+    effective_wall_clock = wall_clock_timeout or _get_wall_clock_timeout()
+
+    # ── Claude CLI subprocess path ─────────────────────────────────────────
+    # When delegation.provider is claude_cli / claude_code, skip AIAgent
+    # construction entirely and spawn claude -p subprocess workers instead.
+    _use_claude_cli = creds.get("provider") == "claude_cli"
+
+    if _use_claude_cli:
+        if n_tasks == 1:
+            result = _run_claude_cli_task(
+                task_index=0,
+                goal=task_list[0]["goal"],
+                context=task_list[0].get("context"),
+                parent_agent=parent_agent,
+                wall_clock_timeout=effective_wall_clock,
+                model=creds.get("model"),
+            )
+            results.append(result)
+        else:
+            completed_count = 0
+            spinner_ref = getattr(parent_agent, "_delegate_spinner", None)
+            with ThreadPoolExecutor(max_workers=max_children) as executor:
+                futures = {}
+                for i, t in enumerate(task_list):
+                    future = executor.submit(
+                        _run_claude_cli_task,
+                        task_index=i,
+                        goal=t["goal"],
+                        context=t.get("context"),
+                        parent_agent=parent_agent,
+                        wall_clock_timeout=effective_wall_clock,
+                        model=creds.get("model"),
+                    )
+                    futures[future] = i
+
+                for future in as_completed(futures):
+                    try:
+                        entry = future.result()
+                    except Exception as exc:
+                        idx = futures[future]
+                        logger.exception("[claude-cli-%d] future raised exception", idx)
+                        entry = {
+                            "task_index": idx, "status": "error",
+                            "summary": None, "error": str(exc),
+                            "api_calls": 0, "duration_seconds": 0,
+                        }
+                    results.append(entry)
+                    completed_count += 1
+                    idx = entry["task_index"]
+                    label = task_labels[idx] if idx < len(task_labels) else f"Task {idx}"
+                    dur = entry.get("duration_seconds", 0)
+                    status = entry.get("status", "?")
+                    _STATUS_ICONS = {
+                        "completed": "✓", "timed_out": "⏰",
+                        "interrupted": "⚡", "error": "💥", "failed": "✗",
+                    }
+                    icon = _STATUS_ICONS.get(status, "✗")
+                    remaining = n_tasks - completed_count
+                    completion_line = f"{icon} [{idx+1}/{n_tasks}] {label}  ({dur}s, {status})"
+                    try:
+                        if spinner_ref:
+                            spinner_ref.print_above(completion_line)
+                        else:
+                            print(f"  {completion_line}")
+                    except Exception:
+                        pass
+                    if spinner_ref and remaining > 0:
+                        try:
+                            spinner_ref.update_text(
+                                f"🔀 {remaining} task{'s' if remaining != 1 else ''} remaining"
+                            )
+                        except Exception:
+                            pass
+            results.sort(key=lambda r: r["task_index"])
+
+        total_duration = round(time.monotonic() - overall_start, 2)
+        return json.dumps({"results": results, "total_duration_seconds": total_duration},
+                          ensure_ascii=False)
+
+    # ── AIAgent path (API-based delegation) ───────────────────────────────
     # Save parent tool names BEFORE any child construction mutates the global.
     # _build_child_agent() calls AIAgent() which calls get_tool_definitions(),
     # which overwrites model_tools._last_resolved_tool_names with child's toolset.
@@ -1222,9 +1534,6 @@ def delegate_task(
     finally:
         # Authoritative restore: reset global to parent's tool names after all children built
         _model_tools._last_resolved_tool_names = _parent_tool_names
-
-    # Resolve wall-clock timeout once for all children
-    effective_wall_clock = wall_clock_timeout or _get_wall_clock_timeout()
 
     if n_tasks == 1:
         # Single task -- run directly (no thread pool overhead)
@@ -1430,6 +1739,16 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
         return {
             "model": configured_model,
             "provider": None,
+            "base_url": None,
+            "api_key": None,
+            "api_mode": None,
+        }
+
+    # claude_cli / claude_code: use subprocess instead of API
+    if configured_provider in ("claude_cli", "claude_code"):
+        return {
+            "model": configured_model,
+            "provider": "claude_cli",
             "base_url": None,
             "api_key": None,
             "api_mode": None,
