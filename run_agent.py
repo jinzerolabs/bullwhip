@@ -3302,26 +3302,53 @@ class AIAgent:
             except Exception:
                 pass
         else:
-            # Non-manager mode: still teach the parent how to handle delegation
-            # results autonomously — retry on failure, only ask the user as
-            # a last resort.
+            # Non-manager mode: teach the parent a simple, mechanical
+            # step-by-step workflow that works reliably even with weaker
+            # local models (Ollama, etc.).
             if "delegate_task" in self.valid_tool_names:
                 prompt_parts.append(
-                    "## Delegation result handling\n\n"
-                    "When a subagent returns results via `delegate_task`:\n"
-                    "1. **Read the tool_trace carefully** — each entry has `action` (what the "
-                    "subagent ran) and `result_preview` (what it got back). Use these to "
-                    "understand what happened.\n"
-                    "2. **On failure or partial results** — analyze the error from the trace, "
-                    "then re-delegate with corrected instructions or additional context. "
-                    "Do NOT immediately ask the user what to do.\n"
-                    "3. **On blockers that need user action** (e.g. 'Docker Desktop is not "
-                    "running', 'missing API key', 'permission denied') — tell the user "
-                    "exactly what they need to do, with the specific command or step.\n"
-                    "4. **Retry up to 2 times** before involving the user. Each retry should "
-                    "include what went wrong and how to avoid it.\n"
-                    "5. **Never say 'the subagent failed'** without explaining WHY and "
-                    "WHAT the user should do about it."
+                    "## How to work: step-by-step execution loop\n\n"
+                    "You MUST follow this simple loop for EVERY task. Do ONE step at a time.\n\n"
+
+                    "### Step 1: PLAN\n"
+                    "Break the user's request into a numbered list of small steps.\n"
+                    "Each step should be ONE simple action (e.g. 'create the file', "
+                    "'install dependencies', 'run the test').\n"
+                    "Write the plan, then start Step 2.\n\n"
+
+                    "### Step 2: DO\n"
+                    "Take the NEXT incomplete step from your plan.\n"
+                    "Use `delegate_task` to assign it to a subagent.\n"
+                    "Give the subagent a clear, specific goal with all necessary context.\n"
+                    "Wait for the result.\n\n"
+
+                    "### Step 3: CHECK\n"
+                    "Read the subagent's result. Look at `tool_trace` — each entry has:\n"
+                    "- `action`: what command/query was run\n"
+                    "- `result_preview`: what came back\n"
+                    "- `status`: 'ok' or 'error'\n\n"
+                    "Ask yourself: did this step succeed?\n\n"
+
+                    "### Step 4: DECIDE\n"
+                    "- If SUCCEEDED → go back to Step 2 with the next step.\n"
+                    "- If FAILED → read the error. Re-delegate the SAME step with the "
+                    "error message included in the context. Retry up to 2 times.\n"
+                    "- If BLOCKED (needs user action like 'start Docker', 'add API key') → "
+                    "tell the user EXACTLY what to do. Give the specific command.\n"
+                    "- If ALL steps are done → go to Step 5.\n\n"
+
+                    "### Step 5: VERIFY\n"
+                    "Delegate a final verification step: run the build, run the tests, "
+                    "or check that everything works together.\n"
+                    "If verification fails → go back to Step 2 to fix the issue.\n"
+                    "If verification passes → report the result to the user.\n\n"
+
+                    "### Rules\n"
+                    "- Do ONE step at a time. Do NOT skip steps.\n"
+                    "- Do NOT ask the user 'should I proceed?' — just proceed.\n"
+                    "- Do NOT say 'I will do X' without actually doing it.\n"
+                    "- When a subagent fails, include the EXACT error in the retry.\n"
+                    "- Keep going until ALL steps are done and verified."
                 )
 
         nous_subscription_prompt = build_nous_subscription_prompt(self.valid_tool_names)
