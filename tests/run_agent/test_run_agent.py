@@ -745,11 +745,11 @@ class TestToolUseEnforcementConfig:
         prompt = agent._build_system_prompt()
         assert TOOL_USE_ENFORCEMENT_GUIDANCE in prompt
 
-    def test_auto_skips_for_claude(self):
+    def test_auto_includes_claude(self):
         from agent.prompt_builder import TOOL_USE_ENFORCEMENT_GUIDANCE
         agent = self._make_agent(model="anthropic/claude-sonnet-4", tool_use_enforcement="auto")
         prompt = agent._build_system_prompt()
-        assert TOOL_USE_ENFORCEMENT_GUIDANCE not in prompt
+        assert TOOL_USE_ENFORCEMENT_GUIDANCE in prompt
 
     def test_true_forces_for_all_models(self):
         from agent.prompt_builder import TOOL_USE_ENFORCEMENT_GUIDANCE
@@ -1189,7 +1189,8 @@ class TestExecuteToolCalls:
         captured = io.StringIO()
         agent._print_fn = lambda *args, **kw: print(*args, file=captured, **kw)
 
-        with patch("run_agent.time.sleep", return_value=None):
+        with patch("run_agent.time.sleep", return_value=None), \
+             patch.object(agent, "_looks_like_intent_without_action", return_value=False):
             result = agent.run_conversation("hello")
 
         assert result["completed"] is True
@@ -2112,6 +2113,7 @@ class TestRunConversation:
             patch.object(
                 agent, "_try_refresh_nous_client_credentials", side_effect=_fake_refresh
             ),
+            patch.object(agent, "_looks_like_intent_without_action", return_value=False),
         ):
             result = agent.run_conversation("hello")
 

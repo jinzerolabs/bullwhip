@@ -121,37 +121,39 @@ class TestBuildChildProgressCallback:
         assert "search for papers" in output
 
     def test_gateway_batched_progress(self):
-        """Gateway path should batch tool calls and flush at BATCH_SIZE."""
+        """Gateway path should batch tool calls and flush at BATCH_SIZE (3)."""
         parent = MagicMock()
         parent._delegate_spinner = None
         parent_cb = MagicMock()
         parent.tool_progress_callback = parent_cb
-        
+
         cb = _build_child_progress_callback(0, parent)
-        
-        # Send 4 tool calls — shouldn't flush yet (BATCH_SIZE = 5)
-        for i in range(4):
+
+        # Send 2 tool calls — shouldn't flush yet (BATCH_SIZE = 3)
+        for i in range(2):
             cb("tool.started", f"tool_{i}", f"arg_{i}", {})
         parent_cb.assert_not_called()
-        
-        # 5th call should trigger flush
-        cb("tool.started", "tool_4", "arg_4", {})
+
+        # 3rd call should trigger flush
+        cb("tool.started", "tool_2", "arg_2", {})
         parent_cb.assert_called_once()
         call_args = parent_cb.call_args
         assert "tool_0" in call_args[0][1]
-        assert "tool_4" in call_args[0][1]
+        assert "tool_2" in call_args[0][1]
 
-    def test_thinking_not_relayed_to_gateway(self):
-        """Thinking events should NOT be sent to gateway (too noisy)."""
+    def test_thinking_relayed_to_gateway(self):
+        """Thinking events should be relayed to gateway for visibility."""
         parent = MagicMock()
         parent._delegate_spinner = None
         parent_cb = MagicMock()
         parent.tool_progress_callback = parent_cb
-        
+
         cb = _build_child_progress_callback(0, parent)
         cb("_thinking", "some reasoning text")
-        
-        parent_cb.assert_not_called()
+
+        parent_cb.assert_called_once()
+        call_args = parent_cb.call_args
+        assert "some reasoning text" in call_args[0][1]
 
     def test_parallel_callbacks_independent(self):
         """Each child's callback should have independent batch state."""
@@ -159,15 +161,15 @@ class TestBuildChildProgressCallback:
         parent._delegate_spinner = None
         parent_cb = MagicMock()
         parent.tool_progress_callback = parent_cb
-        
+
         cb0 = _build_child_progress_callback(0, parent)
         cb1 = _build_child_progress_callback(1, parent)
-        
-        # Send 3 calls to each — neither should flush (batch size = 5)
-        for i in range(3):
+
+        # Send 2 calls to each — neither should flush (batch size = 3)
+        for i in range(2):
             cb0(f"tool_{i}")
             cb1(f"other_{i}")
-        
+
         parent_cb.assert_not_called()
 
     def test_task_index_prefix_in_batch_mode(self):
@@ -195,22 +197,24 @@ class TestBuildChildProgressCallback:
         output = buf.getvalue()
         assert "[3]" in output
 
-    def test_single_task_no_prefix(self):
-        """Single task (task_count=1) should not show index prefix."""
+    def test_single_task_no_task_index_prefix(self):
+        """Single task (task_count=1) should not show task index prefix like [1]."""
         buf = io.StringIO()
         spinner = KawaiiSpinner("delegating")
         spinner._out = buf
         spinner.running = True
-        
+
         parent = MagicMock()
         parent._delegate_spinner = spinner
         parent.tool_progress_callback = None
-        
+
         cb = _build_child_progress_callback(0, parent, task_count=1)
         cb("tool.started", "web_search", "test", {})
-        
+
         output = buf.getvalue()
-        assert "[" not in output
+        # Should not have task index prefix like "[1]", but may have
+        # elapsed time like "[0s]" which is expected
+        assert "[1]" not in output
 
 
 # =========================================================================
@@ -329,18 +333,17 @@ class TestBatchFlush:
 
         cb = _build_child_progress_callback(0, parent)
 
-        # Send 3 tools (below batch size of 5)
+        # Send 2 tools (below batch size of 3)
         cb("tool.started", "web_search", "query1", {})
         cb("tool.started", "read_file", "file.txt", {})
-        cb("tool.started", "write_file", "out.txt", {})
         parent_cb.assert_not_called()
 
-        # Flush should send the remaining 3
+        # Flush should send the remaining 2
         cb._flush()
         parent_cb.assert_called_once()
         summary = parent_cb.call_args[0][1]
         assert "web_search" in summary
-        assert "write_file" in summary
+        assert "read_file" in summary
 
     def test_flush_noop_when_batch_empty(self):
         """_flush should not send anything when batch is empty."""

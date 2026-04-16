@@ -436,8 +436,9 @@ class TestDelegateObservability(unittest.TestCase):
             # Tool trace
             self.assertEqual(len(entry["tool_trace"]), 1)
             self.assertEqual(entry["tool_trace"][0]["tool"], "web_search")
-            self.assertIn("args_bytes", entry["tool_trace"][0])
+            self.assertIn("action", entry["tool_trace"][0])
             self.assertIn("result_bytes", entry["tool_trace"][0])
+            self.assertIn("result_preview", entry["tool_trace"][0])
             self.assertEqual(entry["tool_trace"][0]["status"], "ok")
 
     def test_tool_trace_detects_error(self):
