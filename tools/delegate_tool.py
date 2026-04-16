@@ -247,10 +247,25 @@ def _build_child_progress_callback(task_index: int, parent_agent, task_count: in
                     pass
             return
 
-        # tool.completed — update activity tracker
+        # tool.completed — update activity tracker and show result preview
         if event_type == "tool.completed":
             _last_activity[0] = f"completed {tool_name or 'tool'}"
             _last_activity_ts[0] = time.monotonic()
+            # Show a preview of the tool result so users can follow along
+            result_text = preview or ""
+            if result_text and len(result_text) > 200:
+                result_text = result_text[:200] + "…"
+            if result_text and spinner:
+                try:
+                    spinner.print_above(f" {prefix}│  ↳ {result_text}")
+                except Exception:
+                    pass
+            if result_text and parent_cb:
+                try:
+                    parent_cb("subagent_progress",
+                              f"🔀 {prefix}{tool_name} result: {result_text}")
+                except Exception:
+                    pass
             return
 
         _tool_count[0] += 1
@@ -879,12 +894,22 @@ def _run_single_child(
             )
 
         # Notify user of completion/failure via progress callback
+        # and surface the subagent's actual answer so users see it directly
         if child_progress_cb and hasattr(child_progress_cb, '_notify_status'):
             try:
                 if status == "completed":
                     child_progress_cb._notify_status(
                         f"✅ Subagent completed ({duration}s, {api_calls} API calls)"
                     )
+                    # Show the subagent's actual answer to the user
+                    if summary and summary.strip() and summary.strip() != "(empty)":
+                        # Truncate very long summaries for display
+                        display_summary = summary.strip()
+                        if len(display_summary) > 2000:
+                            display_summary = display_summary[:2000] + "\n…(truncated)"
+                        child_progress_cb._notify_status(
+                            f"📋 Subagent answer:\n{display_summary}"
+                        )
                 elif status == "failed":
                     child_progress_cb._notify_status(
                         f"❌ Subagent failed after {duration}s: {entry.get('error', 'unknown')[:100]}"
