@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "hermes-agent"
-version = "0.9.0"
-description = "The self-improving AI agent — creates skills from experience, improves them during use, and runs anywhere"
+name = "bullwhip-agent"
+version = "1.0.0"
+description = "The bull whip AI agent — a manager that delegates work to Claude Code and Codex, cracks the whip, and gets things done"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "Nous Research" }]
-license = { text = "MIT" }
+authors = [{ name = "ZeroLabs Korea" }]
+license = { text = "AGPL-3.0-or-later" }
 dependencies = [
   # Core — pinned to known-good ranges to limit supply chain attack surface
   "openai>=2.21.0,<3",
@@ -67,12 +67,12 @@ termux = [
   # Tested Android / Termux path: keeps the core CLI feature-rich while
   # avoiding extras that currently depend on non-Android wheels (notably
   # faster-whisper -> ctranslate2 via the voice extra).
-  "hermes-agent[cron]",
-  "hermes-agent[cli]",
-  "hermes-agent[pty]",
-  "hermes-agent[mcp]",
-  "hermes-agent[honcho]",
-  "hermes-agent[acp]",
+  "bullwhip-agent[cron]",
+  "bullwhip-agent[cli]",
+  "bullwhip-agent[pty]",
+  "bullwhip-agent[mcp]",
+  "bullwhip-agent[honcho]",
+  "bullwhip-agent[acp]",
 ]
 dingtalk = ["dingtalk-stream>=0.1.0,<1"]
 feishu = ["lark-oapi>=1.5.3,<2"]
@@ -86,44 +86,44 @@ rl = [
 ]
 yc-bench = ["yc-bench @ git+https://github.com/collinear-ai/yc-bench.git@bfb0c88062450f46341bd9a5298903fc2e952a5c ; python_version >= '3.12'"]
 all = [
-  "hermes-agent[modal]",
-  "hermes-agent[daytona]",
-  "hermes-agent[messaging]",
+  "bullwhip-agent[modal]",
+  "bullwhip-agent[daytona]",
+  "bullwhip-agent[messaging]",
   # matrix: python-olm (required by matrix-nio[e2e]) is upstream-broken on
   # modern macOS (archived libolm, C++ errors with Clang 21+).  On Linux the
   # [matrix] extra's own marker pulls in the [e2e] variant automatically.
-  "hermes-agent[matrix]; sys_platform == 'linux'",
-  "hermes-agent[cron]",
-  "hermes-agent[cli]",
-  "hermes-agent[dev]",
-  "hermes-agent[tts-premium]",
-  "hermes-agent[slack]",
-  "hermes-agent[pty]",
-  "hermes-agent[honcho]",
-  "hermes-agent[mcp]",
-  "hermes-agent[homeassistant]",
-  "hermes-agent[sms]",
-  "hermes-agent[acp]",
-  "hermes-agent[voice]",
-  "hermes-agent[dingtalk]",
-  "hermes-agent[feishu]",
-  "hermes-agent[mistral]",
-  "hermes-agent[web]",
+  "bullwhip-agent[matrix]; sys_platform == 'linux'",
+  "bullwhip-agent[cron]",
+  "bullwhip-agent[cli]",
+  "bullwhip-agent[dev]",
+  "bullwhip-agent[tts-premium]",
+  "bullwhip-agent[slack]",
+  "bullwhip-agent[pty]",
+  "bullwhip-agent[honcho]",
+  "bullwhip-agent[mcp]",
+  "bullwhip-agent[homeassistant]",
+  "bullwhip-agent[sms]",
+  "bullwhip-agent[acp]",
+  "bullwhip-agent[voice]",
+  "bullwhip-agent[dingtalk]",
+  "bullwhip-agent[feishu]",
+  "bullwhip-agent[mistral]",
+  "bullwhip-agent[web]",
 ]
 
 [project.scripts]
-hermes = "hermes_cli.main:main"
-hermes-agent = "run_agent:main"
-hermes-acp = "acp_adapter.entry:main"
+bullwhip = "bullwhip_cli.main:main"
+bullwhip-agent = "run_agent:main"
+bullwhip-acp = "acp_adapter.entry:main"
 
 [tool.setuptools]
-py-modules = ["run_agent", "model_tools", "toolsets", "batch_runner", "trajectory_compressor", "toolset_distributions", "cli", "hermes_constants", "hermes_state", "hermes_time", "hermes_logging", "rl_cli", "utils"]
+py-modules = ["run_agent", "model_tools", "toolsets", "batch_runner", "trajectory_compressor", "toolset_distributions", "cli", "bullwhip_constants", "bullwhip_state", "bullwhip_time", "bullwhip_logging", "rl_cli", "utils"]
 
 [tool.setuptools.package-data]
-hermes_cli = ["web_dist/**/*"]
+bullwhip_cli = ["web_dist/**/*"]
 
 [tool.setuptools.packages.find]
-include = ["agent", "tools", "tools.*", "hermes_cli", "gateway", "gateway.*", "cron", "acp_adapter", "plugins", "plugins.*"]
+include = ["agent", "tools", "tools.*", "bullwhip_cli", "gateway", "gateway.*", "cron", "acp_adapter", "plugins", "plugins.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

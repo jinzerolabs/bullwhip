@@ -1,12 +1,12 @@
 ---
 sidebar_position: 1
 title: "Telegram"
-description: "Set up Hermes Agent as a Telegram bot"
+description: "Set up Bull Whip Agent as a Telegram bot"
 ---
 
 # Telegram Setup
 
-Hermes Agent integrates with Telegram as a full-featured conversational bot. Once connected, you can chat with your agent from any device, send voice memos that get auto-transcribed, receive scheduled task results, and use the agent in group chats. The integration is built on [python-telegram-bot](https://python-telegram-bot.org/) and supports text, voice, images, and file attachments.
+Bull Whip Agent integrates with Telegram as a full-featured conversational bot. Once connected, you can chat with your agent from any device, send voice memos that get auto-transcribed, receive scheduled task results, and use the agent in group chats. The integration is built on [python-telegram-bot](https://python-telegram-bot.org/) and supports text, voice, images, and file attachments.
 
 ## Step 1: Create a Bot via BotFather
 
@@ -14,7 +14,7 @@ Every Telegram bot requires an API token issued by [@BotFather](https://t.me/Bot
 
 1. Open Telegram and search for **@BotFather**, or visit [t.me/BotFather](https://t.me/BotFather)
 2. Send `/newbot`
-3. Choose a **display name** (e.g., "Hermes Agent") — this can be anything
+3. Choose a **display name** (e.g., "Bull Whip Agent") — this can be anything
 4. Choose a **username** — this must be unique and end in `bot` (e.g., `my_hermes_bot`)
 5. BotFather replies with your **API token**. It looks like this:
 
@@ -77,7 +77,7 @@ An alternative to disabling privacy mode: promote the bot to **group admin**. Ad
 
 ## Step 4: Find Your User ID
 
-Hermes Agent uses numeric Telegram user IDs to control access. Your user ID is **not** your username — it's a number like `123456789`.
+Bull Whip Agent uses numeric Telegram user IDs to control access. Your user ID is **not** your username — it's a number like `123456789`.
 
 **Method 1 (recommended):** Message [@userinfobot](https://t.me/userinfobot) — it instantly replies with your user ID.
 
@@ -85,19 +85,19 @@ Hermes Agent uses numeric Telegram user IDs to control access. Your user ID is *
 
 Save this number; you'll need it for the next step.
 
-## Step 5: Configure Hermes
+## Step 5: Configure Bull Whip
 
 ### Option A: Interactive Setup (Recommended)
 
 ```bash
-hermes gateway setup
+bullwhip gateway setup
 ```
 
 Select **Telegram** when prompted. The wizard asks for your bot token and allowed user IDs, then writes the configuration for you.
 
 ### Option B: Manual Configuration
 
-Add the following to `~/.hermes/.env`:
+Add the following to `~/.bullwhip/.env`:
 
 ```bash
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrSTUvwxYZ
@@ -107,14 +107,14 @@ TELEGRAM_ALLOWED_USERS=123456789    # Comma-separated for multiple users
 ### Start the Gateway
 
 ```bash
-hermes gateway
+bullwhip gateway
 ```
 
 The bot should come online within seconds. Send it a message on Telegram to verify.
 
 ## Webhook Mode
 
-By default, Hermes connects to Telegram using **long polling** — the gateway makes outbound requests to Telegram's servers to fetch new updates. This works well for local and always-on deployments.
+By default, Bull Whip connects to Telegram using **long polling** — the gateway makes outbound requests to Telegram's servers to fetch new updates. This works well for local and always-on deployments.
 
 For **cloud deployments** (Fly.io, Railway, Render, etc.), **webhook mode** is more cost-effective. These platforms can auto-wake suspended machines on inbound HTTP traffic, but not on outbound connections. Since polling is outbound, a polling bot can never sleep. Webhook mode flips the direction — Telegram pushes updates to your bot's HTTPS URL, enabling sleep-when-idle deployments.
 
@@ -127,7 +127,7 @@ For **cloud deployments** (Fly.io, Railway, Render, etc.), **webhook mode** is m
 
 ### Configuration
 
-Add the following to `~/.hermes/.env`:
+Add the following to `~/.bullwhip/.env`:
 
 ```bash
 TELEGRAM_WEBHOOK_URL=https://my-app.fly.dev/telegram
@@ -176,7 +176,7 @@ The gateway log should show: `[telegram] Connected to Telegram (webhook mode)`.
 
 Use the `/sethome` command in any Telegram chat (DM or group) to designate it as the **home channel**. Scheduled tasks (cron jobs) deliver their results to this channel.
 
-You can also set it manually in `~/.hermes/.env`:
+You can also set it manually in `~/.bullwhip/.env`:
 
 ```bash
 TELEGRAM_HOME_CHANNEL=-1001234567890
@@ -191,9 +191,9 @@ Group chat IDs are negative numbers (e.g., `-1001234567890`). Your personal DM c
 
 ### Incoming Voice (Speech-to-Text)
 
-Voice messages you send on Telegram are automatically transcribed by Hermes's configured STT provider and injected as text into the conversation.
+Voice messages you send on Telegram are automatically transcribed by Bull Whip's configured STT provider and injected as text into the conversation.
 
-- `local` uses `faster-whisper` on the machine running Hermes — no API key required
+- `local` uses `faster-whisper` on the machine running Bull Whip — no API key required
 - `groq` uses Groq Whisper and requires `GROQ_API_KEY`
 - `openai` uses OpenAI Whisper and requires `VOICE_TOOLS_OPENAI_KEY`
 
@@ -218,7 +218,7 @@ Configure the TTS provider in your `config.yaml` under the `tts.provider` key.
 
 ## Group Chat Usage
 
-Hermes Agent works in Telegram group chats with a few considerations:
+Bull Whip Agent works in Telegram group chats with a few considerations:
 
 - **Privacy mode** determines what messages the bot can see (see [Step 3](#step-3-privacy-mode-critical-for-groups))
 - `TELEGRAM_ALLOWED_USERS` still applies — only authorized users can trigger the bot, even in groups
@@ -228,11 +228,11 @@ Hermes Agent works in Telegram group chats with a few considerations:
   - replies to one of the bot's messages
   - `@botusername` mentions
   - matches for one of your configured regex wake words in `telegram.mention_patterns`
-- If `telegram.require_mention` is left unset or false, Hermes keeps the previous open-group behavior and responds to normal group messages it can see
+- If `telegram.require_mention` is left unset or false, Bull Whip keeps the previous open-group behavior and responds to normal group messages it can see
 
 ### Example group trigger configuration
 
-Add this to `~/.hermes/config.yaml`:
+Add this to `~/.bullwhip/config.yaml`:
 
 ```yaml
 telegram:
@@ -253,7 +253,7 @@ This example allows all the usual direct triggers plus messages that begin with 
 
 ## Private Chat Topics (Bot API 9.4)
 
-Telegram Bot API 9.4 (February 2026) introduced **Private Chat Topics** — bots can create forum-style topic threads directly in 1-on-1 DM chats, no supergroup needed. This lets you run multiple isolated workspaces within your existing DM with Hermes.
+Telegram Bot API 9.4 (February 2026) introduced **Private Chat Topics** — bots can create forum-style topic threads directly in 1-on-1 DM chats, no supergroup needed. This lets you run multiple isolated workspaces within your existing DM with Bull Whip.
 
 ### Use case
 
@@ -267,7 +267,7 @@ Each topic gets its own conversation session, history, and context — completel
 
 ### Configuration
 
-Add topics under `platforms.telegram.extra.dm_topics` in `~/.hermes/config.yaml`:
+Add topics under `platforms.telegram.extra.dm_topics` in `~/.bullwhip/config.yaml`:
 
 ```yaml
 platforms:
@@ -297,7 +297,7 @@ platforms:
 
 ### How it works
 
-1. On gateway startup, Hermes calls `createForumTopic` for each topic that doesn't have a `thread_id` yet
+1. On gateway startup, Bull Whip calls `createForumTopic` for each topic that doesn't have a `thread_id` yet
 2. The `thread_id` is saved back to `config.yaml` automatically — subsequent restarts skip the API call
 3. Each topic maps to an isolated session key: `agent:main:telegram:dm:{chat_id}:{thread_id}`
 4. Messages in each topic have their own conversation history, memory flush, and context window
@@ -326,7 +326,7 @@ A team supergroup with forum topics for different workstreams:
 
 ### Configuration
 
-Add topic bindings under `platforms.telegram.extra.group_topics` in `~/.hermes/config.yaml`:
+Add topic bindings under `platforms.telegram.extra.group_topics` in `~/.bullwhip/config.yaml`:
 
 ```yaml
 platforms:
@@ -357,7 +357,7 @@ platforms:
 
 ### How it works
 
-1. When a message arrives in a mapped group topic, Hermes looks up the `chat_id` and `thread_id` in `group_topics` config
+1. When a message arrives in a mapped group topic, Bull Whip looks up the `chat_id` and `thread_id` in `group_topics` config
 2. If a matching entry has a `skill` field, that skill is auto-loaded for the session — identical to DM topic skill binding
 3. Topics without a `skill` key get session isolation only (existing behavior, unchanged)
 4. Unmapped `thread_id` values or `chat_id` values fall through silently — no error, no skill
@@ -367,7 +367,7 @@ platforms:
 | | DM Topics | Group Topics |
 |---|---|---|
 | Config key | `extra.dm_topics` | `extra.group_topics` |
-| Topic creation | Hermes creates topics via API if `thread_id` is missing | Admin creates topics in Telegram UI |
+| Topic creation | Bull Whip creates topics via API if `thread_id` is missing | Admin creates topics in Telegram UI |
 | `thread_id` | Auto-populated after creation | Must be set manually |
 | `icon_color` / `icon_custom_emoji_id` | Supported | Not applicable (admin controls appearance) |
 | Skill binding | ✓ | ✓ |
@@ -385,7 +385,7 @@ To find a topic's `thread_id`, open the topic in Telegram Web or Desktop and loo
 
 ## Interactive Model Picker
 
-When you send `/model` with no arguments in a Telegram chat, Hermes shows an interactive inline keyboard for switching models:
+When you send `/model` with no arguments in a Telegram chat, Bull Whip shows an interactive inline keyboard for switching models:
 
 1. **Provider selection** — buttons showing each available provider with model counts (e.g., "OpenAI (15)", "✓ Anthropic (12)" for the current provider).
 2. **Model selection** — paginated model list with **Prev**/**Next** navigation, a **Back** button to return to providers, and **Cancel**.
@@ -417,7 +417,7 @@ TELEGRAM_WEBHOOK_PORT=8443
 TELEGRAM_WEBHOOK_SECRET=my-secret-token
 ```
 
-Or in `~/.hermes/config.yaml`:
+Or in `~/.bullwhip/config.yaml`:
 
 ```yaml
 telegram:
@@ -449,7 +449,7 @@ In some restricted networks, `api.telegram.org` may resolve to an IP that is unr
 TELEGRAM_FALLBACK_IPS=149.154.167.220,149.154.167.221
 ```
 
-Or in `~/.hermes/config.yaml`:
+Or in `~/.bullwhip/config.yaml`:
 
 ```yaml
 platforms:
@@ -482,19 +482,19 @@ Set the proxy in your environment before starting the gateway:
 
 ```bash
 export HTTPS_PROXY=http://proxy.example.com:8080
-hermes gateway
+bullwhip gateway
 ```
 
-Or add it to `~/.hermes/.env`:
+Or add it to `~/.bullwhip/.env`:
 
 ```bash
 HTTPS_PROXY=http://proxy.example.com:8080
 ```
 
-The proxy applies to both the primary transport and all fallback IP transports. No additional Hermes configuration is needed — if the environment variable is set, it's used automatically.
+The proxy applies to both the primary transport and all fallback IP transports. No additional Bull Whip configuration is needed — if the environment variable is set, it's used automatically.
 
 :::note
-This covers the custom fallback transport layer that Hermes uses for Telegram connections. The standard `httpx` client used elsewhere already respects proxy env vars natively.
+This covers the custom fallback transport layer that Bull Whip uses for Telegram connections. The standard `httpx` client used elsewhere already respects proxy env vars natively.
 :::
 
 ## Message Reactions
@@ -530,10 +530,10 @@ If the bot doesn't have permission to add reactions in a group, the reaction cal
 
 | Problem | Solution |
 |---------|----------|
-| Bot not responding at all | Verify `TELEGRAM_BOT_TOKEN` is correct. Check `hermes gateway` logs for errors. |
+| Bot not responding at all | Verify `TELEGRAM_BOT_TOKEN` is correct. Check `bullwhip gateway` logs for errors. |
 | Bot responds with "unauthorized" | Your user ID is not in `TELEGRAM_ALLOWED_USERS`. Double-check with @userinfobot. |
 | Bot ignores group messages | Privacy mode is likely on. Disable it (Step 3) or make the bot a group admin. **Remember to remove and re-add the bot after changing privacy.** |
-| Voice messages not transcribed | Verify STT is available: install `faster-whisper` for local transcription, or set `GROQ_API_KEY` / `VOICE_TOOLS_OPENAI_KEY` in `~/.hermes/.env`. |
+| Voice messages not transcribed | Verify STT is available: install `faster-whisper` for local transcription, or set `GROQ_API_KEY` / `VOICE_TOOLS_OPENAI_KEY` in `~/.bullwhip/.env`. |
 | Voice replies are files, not bubbles | Install `ffmpeg` (needed for Edge TTS Opus conversion). |
 | Bot token revoked/invalid | Generate a new token via `/revoke` then `/newbot` or `/token` in BotFather. Update your `.env` file. |
 | Webhook not receiving updates | Verify `TELEGRAM_WEBHOOK_URL` is publicly reachable (test with `curl`). Ensure your platform/reverse proxy routes inbound HTTPS traffic from the URL's port to the local listen port configured by `TELEGRAM_WEBHOOK_PORT` (they do not need to be the same number). Ensure SSL/TLS is active — Telegram only sends to HTTPS URLs. Check firewall rules. |

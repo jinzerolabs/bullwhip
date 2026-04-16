@@ -39,12 +39,12 @@ DELEGATE_BLOCKED_TOOLS = frozenset([
 
 # Build a description fragment listing toolsets available for subagents.
 # Excludes toolsets where ALL tools are blocked, composite/platform toolsets
-# (hermes-* prefixed), and scenario toolsets.
+# (bullwhip-* prefixed), and scenario toolsets.
 _EXCLUDED_TOOLSET_NAMES = frozenset({"debugging", "safe", "delegation", "moa", "rl"})
 _SUBAGENT_TOOLSETS = sorted(
     name for name, defn in TOOLSETS.items()
     if name not in _EXCLUDED_TOOLSET_NAMES
-    and not name.startswith("hermes-")
+    and not name.startswith("bullwhip-")
     and not all(t in DELEGATE_BLOCKED_TOOLS for t in defn.get("tools", []))
 )
 _TOOLSET_LIST_STR = ", ".join(f"'{n}'" for n in _SUBAGENT_TOOLSETS)
@@ -78,7 +78,12 @@ def _get_max_concurrent_children() -> int:
             pass
     return _DEFAULT_MAX_CONCURRENT_CHILDREN
 DEFAULT_MAX_ITERATIONS = 50
-_HEARTBEAT_INTERVAL = 30  # seconds between parent activity heartbeats during delegation
+_HEARTBEAT_INTERVAL = 15  # seconds between parent activity heartbeats during delegation
+_DEFAULT_WALL_CLOCK_TIMEOUT = 900  # 15 minutes per subagent (wall-clock, not iteration count)
+_STALL_CHECK_INTERVAL = 60  # seconds of no API call progress before warning
+_STALL_PROCESS_DEAD_TIMEOUT = 30  # seconds after process death before interrupting child
+_STALL_HARD_TIMEOUT = 300  # 5 min of zero progress → interrupt (process alive but truly stuck)
+_USER_PING_INTERVAL = 45  # seconds between "still working" messages to the user
 DEFAULT_TOOLSETS = ["terminal", "file", "web"]
 
 
@@ -174,64 +179,145 @@ def _build_child_progress_callback(task_index: int, parent_agent, task_count: in
     # Show 1-indexed prefix only in batch mode (multiple tasks)
     prefix = f"[{task_index + 1}] " if task_count > 1 else ""
 
+    # Track start time for elapsed display
+    _start_time = time.monotonic()
+    _tool_count = [0]  # mutable counter for closure
+
     # Gateway: batch tool names, flush periodically
-    _BATCH_SIZE = 5
+    _BATCH_SIZE = 3  # smaller batches for more frequent updates
     _batch: List[str] = []
+
+    def _format_elapsed() -> str:
+        elapsed = int(time.monotonic() - _start_time)
+        if elapsed < 60:
+            return f"{elapsed}s"
+        return f"{elapsed // 60}m{elapsed % 60:02d}s"
+
+    def _extract_action_detail(tool_name: str, preview: str = None, args: dict = None) -> str:
+        """Extract a human-readable action detail from tool args.
+
+        Shows what the subagent is actually DOING, not just which tool it called.
+        e.g. 'terminal: git status' instead of just 'terminal'
+        """
+        if not args:
+            return preview or ""
+        # Map tool → primary arg that tells you what's happening
+        _KEY_MAP = {
+            "terminal": "command", "web_search": "query", "web_extract": "urls",
+            "read_file": "path", "write_file": "path", "patch": "path",
+            "search_files": "pattern", "browser_navigate": "url",
+            "execute_code": "code", "delegate_task": "goal",
+            "image_generate": "prompt",
+        }
+        key = _KEY_MAP.get(tool_name)
+        if key and key in args:
+            val = str(args[key])
+            return val
+        return preview or ""
+
+    # Track last activity for "what is it doing now" display
+    _last_activity = ["starting..."]  # mutable string for current activity description
+    _last_activity_ts = [time.monotonic()]
 
     def _callback(event_type: str, tool_name: str = None, preview: str = None, args=None, **kwargs):
         # event_type is one of: "tool.started", "tool.completed",
         # "reasoning.available", "_thinking", "subagent_progress"
 
-        # "_thinking" / reasoning events
+        # "_thinking" / reasoning events — relay to BOTH CLI and gateway
         if event_type in ("_thinking", "reasoning.available"):
             text = preview or tool_name or ""
+            if not text.strip():
+                return
+            short = (text[:80] + "...") if len(text) > 80 else text
+            _last_activity[0] = f"💭 {short}"
+            _last_activity_ts[0] = time.monotonic()
             if spinner:
-                short = (text[:55] + "...") if len(text) > 55 else text
+                display = (text[:55] + "...") if len(text) > 55 else text
                 try:
-                    spinner.print_above(f" {prefix}├─ 💭 \"{short}\"")
+                    spinner.print_above(f" {prefix}├─ 💭 \"{display}\"")
                 except Exception as e:
                     logger.debug("Spinner print_above failed: %s", e)
-            # Don't relay thinking to gateway (too noisy for chat)
+            # Relay thinking to gateway so users see what the agent is considering
+            if parent_cb:
+                try:
+                    elapsed_str = _format_elapsed()
+                    parent_cb("subagent_progress",
+                              f"🔀 {prefix}[{elapsed_str}] 💭 {short}")
+                except Exception:
+                    pass
             return
 
-        # tool.completed — no display needed here (spinner shows on started)
+        # tool.completed — update activity tracker
         if event_type == "tool.completed":
+            _last_activity[0] = f"completed {tool_name or 'tool'}"
+            _last_activity_ts[0] = time.monotonic()
             return
 
-        # tool.started — display and batch for parent relay
+        _tool_count[0] += 1
+        elapsed_str = _format_elapsed()
+
+        # Extract meaningful action detail from args
+        action_detail = _extract_action_detail(tool_name or "", preview, args if isinstance(args, dict) else None)
+
+        # Update current activity tracker
+        act_short = (action_detail[:60] + "...") if len(action_detail) > 60 else action_detail
+        _last_activity[0] = f"🔧 {tool_name}: {act_short}" if act_short else f"🔧 {tool_name}"
+        _last_activity_ts[0] = time.monotonic()
+
+        # tool.started — display with actual command/action detail
         if spinner:
-            short = (preview[:35] + "...") if preview and len(preview) > 35 else (preview or "")
+            # CLI: show up to 80 chars of the actual action
+            short = (action_detail[:80] + "...") if len(action_detail) > 80 else action_detail
             from agent.display import get_tool_emoji
             emoji = get_tool_emoji(tool_name or "")
-            line = f" {prefix}├─ {emoji} {tool_name}"
+            line = f" {prefix}├─ {emoji} {tool_name} [{elapsed_str}]"
             if short:
-                line += f"  \"{short}\""
+                line += f"  {short}"
             try:
                 spinner.print_above(line)
             except Exception as e:
                 logger.debug("Spinner print_above failed: %s", e)
 
         if parent_cb:
-            _batch.append(tool_name or "")
+            # Gateway: include action detail so users see WHAT is happening
+            detail_short = (action_detail[:60] + "...") if len(action_detail) > 60 else action_detail
+            display_text = f"{tool_name}: {detail_short}" if detail_short else (tool_name or "")
+            _batch.append(display_text)
             if len(_batch) >= _BATCH_SIZE:
-                summary = ", ".join(_batch)
+                summary = "\n".join(f"  • {item}" for item in _batch)
                 try:
-                    parent_cb("subagent_progress", f"🔀 {prefix}{summary}")
+                    parent_cb("subagent_progress",
+                              f"🔀 {prefix}Progress ({elapsed_str}, {_tool_count[0]} tools):\n{summary}")
                 except Exception as e:
                     logger.debug("Parent callback failed: %s", e)
                 _batch.clear()
 
     def _flush():
-        """Flush remaining batched tool names to gateway on completion."""
+        """Flush remaining batched tool actions to gateway on completion."""
         if parent_cb and _batch:
-            summary = ", ".join(_batch)
+            elapsed_str = _format_elapsed()
+            summary = "\n".join(f"  • {item}" for item in _batch)
             try:
-                parent_cb("subagent_progress", f"🔀 {prefix}{summary}")
+                parent_cb("subagent_progress",
+                          f"🔀 {prefix}Progress ({elapsed_str}, {_tool_count[0]} tools):\n{summary}")
             except Exception as e:
                 logger.debug("Parent callback flush failed: %s", e)
             _batch.clear()
 
+    def _notify_status(status_msg: str):
+        """Send a status update to gateway (completion, failure, timeout)."""
+        if parent_cb:
+            try:
+                parent_cb("subagent_progress", f"🔀 {prefix}{status_msg}")
+            except Exception as e:
+                logger.debug("Status notification failed: %s", e)
+
     _callback._flush = _flush
+    _callback._notify_status = _notify_status
+    _callback._start_time = _start_time
+    _callback._tool_count = _tool_count
+    _callback._last_activity = _last_activity
+    _callback._last_activity_ts = _last_activity_ts
     return _callback
 
 
@@ -333,7 +419,7 @@ def _build_child_agent(
         delegation_cfg = _load_config()
         delegation_effort = str(delegation_cfg.get("reasoning_effort") or "").strip()
         if delegation_effort:
-            from hermes_constants import parse_reasoning_effort
+            from bullwhip_constants import parse_reasoning_effort
             parsed = parse_reasoning_effort(delegation_effort)
             if parsed is not None:
                 child_reasoning = parsed
@@ -396,18 +482,47 @@ def _build_child_agent(
 
     return child
 
+def _get_wall_clock_timeout() -> int:
+    """Read delegation.wall_clock_timeout from config or env, with default."""
+    cfg = _load_config()
+    val = cfg.get("wall_clock_timeout")
+    if val is not None:
+        try:
+            return max(60, int(val))
+        except (TypeError, ValueError):
+            logger.warning(
+                "delegation.wall_clock_timeout=%r is not valid; using default %d",
+                val, _DEFAULT_WALL_CLOCK_TIMEOUT,
+            )
+    env_val = os.getenv("DELEGATION_WALL_CLOCK_TIMEOUT")
+    if env_val:
+        try:
+            return max(60, int(env_val))
+        except (TypeError, ValueError):
+            pass
+    return _DEFAULT_WALL_CLOCK_TIMEOUT
+
+
 def _run_single_child(
     task_index: int,
     goal: str,
     child=None,
     parent_agent=None,
+    wall_clock_timeout: Optional[int] = None,
     **_kwargs,
 ) -> Dict[str, Any]:
     """
     Run a pre-built child agent. Called from within a thread.
     Returns a structured result dict.
+
+    Improvements over original:
+    - Wall-clock timeout: kills child if it exceeds the deadline
+    - Stall detection: monitors child activity and interrupts if stalled
+    - Progress flush in finally: batched progress always delivered
+    - Completion/failure notification: gateway users see status changes
     """
     child_start = time.monotonic()
+    effective_timeout = wall_clock_timeout or _get_wall_clock_timeout()
 
     # Get the progress callback from the child agent
     child_progress_cb = getattr(child, 'tool_progress_callback', None)
@@ -432,32 +547,186 @@ def _run_single_child(
 
     # Heartbeat: periodically propagate child activity to the parent so the
     # gateway inactivity timeout doesn't fire while the subagent is working.
-    # Without this, the parent's _last_activity_ts freezes when delegate_task
-    # starts and the gateway eventually kills the agent for "no activity".
+    # Stall detection with 3-tier approach:
+    #   1. Process death detection: check if ACP subprocess has exited
+    #   2. Soft stall warning: no API progress for _STALL_CHECK_INTERVAL (60s)
+    #   3. Hard stall interrupt: no progress for _STALL_HARD_TIMEOUT (300s)
     _heartbeat_stop = threading.Event()
+    _last_child_activity_ts = [time.monotonic()]
+    _last_child_api_count = [0]
+    _timed_out = [False]
+    _stop_reason = [""]  # "", "wall_clock_timeout", "process_dead", "hard_stall"
+    _process_dead_since = [0.0]  # timestamp when we first noticed process death
+    _stall_warned = [False]  # only warn once per stall episode
+    _last_user_ping_ts = [time.monotonic()]  # last time we sent a "still working" msg
+
+    def _check_acp_process_alive() -> tuple[bool, str]:
+        """Check if child's ACP subprocess is still running.
+
+        Returns (is_alive, detail_string).
+        For non-ACP children, always returns (True, "").
+        """
+        try:
+            client = getattr(child, 'client', None)
+            if client is None:
+                return True, ""
+            # CopilotACPClient has _active_process
+            active_proc = getattr(client, '_active_process', None)
+            if active_proc is None:
+                # No active process — could be between requests (normal)
+                # or client was never ACP. Check if it's an ACP client.
+                if hasattr(client, '_acp_command'):
+                    # ACP client with no active process — between requests
+                    return True, "between requests"
+                return True, ""
+            rc = active_proc.poll()
+            if rc is None:
+                return True, "running"
+            # Process exited — grab stderr for diagnostics
+            stderr_text = ""
+            stderr_buf = getattr(client, '_stderr_lines', None)
+            if stderr_buf:
+                try:
+                    stderr_text = "\n".join(stderr_buf)[-200:]
+                except Exception:
+                    pass
+            return False, f"exited with code {rc}" + (f": {stderr_text}" if stderr_text else "")
+        except Exception as e:
+            logger.debug("[subagent-%d] process check failed: %s", task_index, e)
+            return True, ""  # can't check → assume alive
 
     def _heartbeat_loop():
         while not _heartbeat_stop.wait(_HEARTBEAT_INTERVAL):
+            now = time.monotonic()
+            elapsed = now - child_start
+
+            # === Wall-clock timeout check ===
+            if elapsed > effective_timeout:
+                logger.warning(
+                    "[subagent-%d] wall-clock timeout after %.0fs (limit: %ds)",
+                    task_index, elapsed, effective_timeout,
+                )
+                _timed_out[0] = True
+                _stop_reason[0] = "wall_clock_timeout"
+                if hasattr(child, '_interrupt_requested'):
+                    child._interrupt_requested = True
+                if child_progress_cb and hasattr(child_progress_cb, '_notify_status'):
+                    try:
+                        child_progress_cb._notify_status(
+                            f"⏰ Subagent timed out after {int(elapsed)}s (limit: {effective_timeout}s)"
+                        )
+                    except Exception:
+                        pass
+                break
+
+            # === ACP process death detection ===
+            proc_alive, proc_detail = _check_acp_process_alive()
+            if not proc_alive:
+                if _process_dead_since[0] == 0.0:
+                    _process_dead_since[0] = now
+                    logger.warning(
+                        "[subagent-%d] ACP process died: %s",
+                        task_index, proc_detail,
+                    )
+                    if child_progress_cb and hasattr(child_progress_cb, '_notify_status'):
+                        try:
+                            child_progress_cb._notify_status(
+                                f"⚠️ Subagent process exited ({proc_detail[:80]}), waiting for recovery..."
+                            )
+                        except Exception:
+                            pass
+
+                dead_duration = now - _process_dead_since[0]
+                if dead_duration > _STALL_PROCESS_DEAD_TIMEOUT:
+                    logger.error(
+                        "[subagent-%d] ACP process has been dead for %.0fs, interrupting",
+                        task_index, dead_duration,
+                    )
+                    _timed_out[0] = True
+                    _stop_reason[0] = "process_dead"
+                    if hasattr(child, '_interrupt_requested'):
+                        child._interrupt_requested = True
+                    if child_progress_cb and hasattr(child_progress_cb, '_notify_status'):
+                        try:
+                            child_progress_cb._notify_status(
+                                f"💀 Subagent process died and did not recover after {int(dead_duration)}s — aborting"
+                            )
+                        except Exception:
+                            pass
+                    break
+            else:
+                # Process is alive — reset death tracker
+                if _process_dead_since[0] != 0.0:
+                    logger.info("[subagent-%d] ACP process recovered", task_index)
+                    _process_dead_since[0] = 0.0
+
             if parent_agent is None:
                 continue
             touch = getattr(parent_agent, '_touch_activity', None)
             if not touch:
                 continue
-            # Pull detail from the child's own activity tracker
+
+            # === Pull child activity for heartbeat + stall detection ===
             desc = f"delegate_task: subagent {task_index} working"
             try:
                 child_summary = child.get_activity_summary()
                 child_tool = child_summary.get("current_tool")
                 child_iter = child_summary.get("api_call_count", 0)
                 child_max = child_summary.get("max_iterations", 0)
+
+                # Track progress
+                if child_iter != _last_child_api_count[0]:
+                    _last_child_activity_ts[0] = now
+                    _last_child_api_count[0] = child_iter
+                    _stall_warned[0] = False  # reset warning on progress
+                else:
+                    stall_duration = now - _last_child_activity_ts[0]
+
+                    # Tier 2: Soft warning (informational)
+                    if stall_duration > _STALL_CHECK_INTERVAL and not _stall_warned[0]:
+                        _stall_warned[0] = True
+                        logger.warning(
+                            "[subagent-%d] no progress for %.0fs "
+                            "(iteration %d/%d, process: %s)",
+                            task_index, stall_duration, child_iter, child_max,
+                            proc_detail or "alive",
+                        )
+                        if child_progress_cb and hasattr(child_progress_cb, '_notify_status'):
+                            try:
+                                child_progress_cb._notify_status(
+                                    f"⏳ Subagent idle for {int(stall_duration)}s "
+                                    f"(iteration {child_iter}/{child_max}) — still working..."
+                                )
+                            except Exception:
+                                pass
+
+                    # Tier 3: Hard stall — interrupt
+                    if stall_duration > _STALL_HARD_TIMEOUT:
+                        logger.error(
+                            "[subagent-%d] hard stall: no progress for %.0fs, interrupting",
+                            task_index, stall_duration,
+                        )
+                        _timed_out[0] = True
+                        _stop_reason[0] = "hard_stall"
+                        if hasattr(child, '_interrupt_requested'):
+                            child._interrupt_requested = True
+                        if child_progress_cb and hasattr(child_progress_cb, '_notify_status'):
+                            try:
+                                child_progress_cb._notify_status(
+                                    f"🧊 Subagent frozen: no activity for {int(stall_duration)}s — aborting"
+                                )
+                            except Exception:
+                                pass
+                        break
+
                 if child_tool:
                     desc = (f"delegate_task: subagent running {child_tool} "
-                            f"(iteration {child_iter}/{child_max})")
+                            f"(iteration {child_iter}/{child_max}, {int(elapsed)}s)")
                 else:
                     child_desc = child_summary.get("last_activity_desc", "")
                     if child_desc:
                         desc = (f"delegate_task: subagent {child_desc} "
-                                f"(iteration {child_iter}/{child_max})")
+                                f"(iteration {child_iter}/{child_max}, {int(elapsed)}s)")
             except Exception:
                 pass
             try:
@@ -465,18 +734,30 @@ def _run_single_child(
             except Exception:
                 pass
 
+            # === Periodic user-visible status push ===
+            # Like Claude Code's live status line: show users exactly what
+            # the subagent is doing RIGHT NOW, not just when a tool starts.
+            if child_progress_cb and hasattr(child_progress_cb, '_last_activity'):
+                time_since_ping = now - _last_user_ping_ts[0]
+                if time_since_ping >= _USER_PING_INTERVAL:
+                    _last_user_ping_ts[0] = now
+                    current_activity = child_progress_cb._last_activity[0]
+                    elapsed_min = int(elapsed) // 60
+                    elapsed_sec = int(elapsed) % 60
+                    elapsed_fmt = f"{elapsed_min}m{elapsed_sec:02d}s" if elapsed_min else f"{elapsed_sec}s"
+                    if hasattr(child_progress_cb, '_notify_status'):
+                        try:
+                            child_progress_cb._notify_status(
+                                f"⚙️ [{elapsed_fmt}] {current_activity}"
+                            )
+                        except Exception:
+                            pass
+
     _heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
     _heartbeat_thread.start()
 
     try:
         result = child.run_conversation(user_message=goal)
-
-        # Flush any remaining batched progress to gateway
-        if child_progress_cb and hasattr(child_progress_cb, '_flush'):
-            try:
-                child_progress_cb._flush()
-            except Exception as e:
-                logger.debug("Progress callback flush failed: %s", e)
 
         duration = round(time.monotonic() - child_start, 2)
 
@@ -485,18 +766,23 @@ def _run_single_child(
         interrupted = result.get("interrupted", False)
         api_calls = result.get("api_calls", 0)
 
-        if interrupted:
+        # Detect "(empty)" responses — model returned nothing useful after
+        # exhausting all retries. This is distinct from a normal empty string
+        # (which indicates max_iterations or other completion without output).
+        _is_empty_sentinel = summary.strip() == "(empty)"
+
+        if _timed_out[0]:
+            status = "timed_out"
+        elif interrupted:
             status = "interrupted"
+        elif _is_empty_sentinel:
+            status = "failed"
         elif summary:
-            # A summary means the subagent produced usable output.
-            # exit_reason ("completed" vs "max_iterations") already
-            # tells the parent *how* the task ended.
             status = "completed"
         else:
             status = "failed"
 
         # Build tool trace from conversation messages (already in memory).
-        # Uses tool_call_id to correctly pair parallel tool calls with results.
         tool_trace: list[Dict[str, Any]] = []
         trace_by_id: Dict[str, Dict[str, Any]] = {}
         messages = result.get("messages") or []
@@ -524,18 +810,20 @@ def _run_single_child(
                         "result_bytes": len(content),
                         "status": "error" if is_error else "ok",
                     }
-                    # Match by tool_call_id for parallel calls
                     tc_id = msg.get("tool_call_id")
                     target = trace_by_id.get(tc_id) if tc_id else None
                     if target is not None:
                         target.update(result_meta)
                     elif tool_trace:
-                        # Fallback for messages without tool_call_id
                         tool_trace[-1].update(result_meta)
 
-        # Determine exit reason
-        if interrupted:
+        # Determine exit reason — use specific stop reason when available
+        if _timed_out[0]:
+            exit_reason = _stop_reason[0] or "wall_clock_timeout"
+        elif interrupted:
             exit_reason = "interrupted"
+        elif _is_empty_sentinel:
+            exit_reason = "empty_response"
         elif completed:
             exit_reason = "completed"
         else:
@@ -561,13 +849,68 @@ def _run_single_child(
             "tool_trace": tool_trace,
         }
         if status == "failed":
-            entry["error"] = result.get("error", "Subagent did not produce a response.")
+            if _is_empty_sentinel:
+                entry["error"] = (
+                    f"Subagent's model ({_model}) returned empty responses after all retries. "
+                    "The model may be too small or incompatible for this task. "
+                    "Consider using a more capable model for delegation "
+                    "(set delegation.model in config.yaml)."
+                )
+            else:
+                entry["error"] = result.get("error", "Subagent did not produce a response.")
+        if status == "timed_out":
+            _STOP_REASON_MESSAGES = {
+                "wall_clock_timeout": (
+                    f"Subagent exceeded wall-clock timeout of {effective_timeout}s. "
+                    f"Partial result may be available in summary."
+                ),
+                "process_dead": (
+                    "Subagent's backing process (e.g. Codex) crashed and did not recover. "
+                    "The process exited unexpectedly during execution."
+                ),
+                "hard_stall": (
+                    f"Subagent made no progress for {_STALL_HARD_TIMEOUT}s. "
+                    "The process was alive but completely unresponsive (likely stuck/frozen)."
+                ),
+            }
+            entry["error"] = _STOP_REASON_MESSAGES.get(
+                _stop_reason[0],
+                f"Subagent stopped: {_stop_reason[0] or 'unknown reason'}",
+            )
+
+        # Notify user of completion/failure via progress callback
+        if child_progress_cb and hasattr(child_progress_cb, '_notify_status'):
+            try:
+                if status == "completed":
+                    child_progress_cb._notify_status(
+                        f"✅ Subagent completed ({duration}s, {api_calls} API calls)"
+                    )
+                elif status == "failed":
+                    child_progress_cb._notify_status(
+                        f"❌ Subagent failed after {duration}s: {entry.get('error', 'unknown')[:100]}"
+                    )
+                elif status == "timed_out":
+                    child_progress_cb._notify_status(
+                        f"⏰ Subagent timed out after {duration}s"
+                    )
+            except Exception:
+                pass
 
         return entry
 
     except Exception as exc:
         duration = round(time.monotonic() - child_start, 2)
-        logging.exception(f"[subagent-{task_index}] failed")
+        logger.exception("[subagent-%d] failed with exception", task_index)
+
+        # Notify user of crash via progress callback
+        if child_progress_cb and hasattr(child_progress_cb, '_notify_status'):
+            try:
+                child_progress_cb._notify_status(
+                    f"💥 Subagent crashed after {duration}s: {str(exc)[:100]}"
+                )
+            except Exception:
+                pass
+
         return {
             "task_index": task_index,
             "status": "error",
@@ -578,10 +921,23 @@ def _run_single_child(
         }
 
     finally:
+        # Always flush progress so gateway doesn't lose the last batch
+        if child_progress_cb and hasattr(child_progress_cb, '_flush'):
+            try:
+                child_progress_cb._flush()
+            except Exception as e:
+                logger.debug("Progress callback flush failed: %s", e)
+
         # Stop the heartbeat thread so it doesn't keep touching parent activity
         # after the child has finished (or failed).
         _heartbeat_stop.set()
-        _heartbeat_thread.join(timeout=5)
+        _heartbeat_thread.join(timeout=10)
+        if _heartbeat_thread.is_alive():
+            logger.warning(
+                "[subagent-%d] heartbeat thread did not stop within 10s; "
+                "it will be cleaned up when the process exits (daemon thread)",
+                task_index,
+            )
 
         if child_pool is not None and leased_cred_id is not None:
             try:
@@ -628,6 +984,7 @@ def delegate_task(
     max_iterations: Optional[int] = None,
     acp_command: Optional[str] = None,
     acp_args: Optional[List[str]] = None,
+    wall_clock_timeout: Optional[int] = None,
     parent_agent=None,
 ) -> str:
     """
@@ -728,10 +1085,14 @@ def delegate_task(
         # Authoritative restore: reset global to parent's tool names after all children built
         _model_tools._last_resolved_tool_names = _parent_tool_names
 
+    # Resolve wall-clock timeout once for all children
+    effective_wall_clock = wall_clock_timeout or _get_wall_clock_timeout()
+
     if n_tasks == 1:
         # Single task -- run directly (no thread pool overhead)
         _i, _t, child = children[0]
-        result = _run_single_child(0, _t["goal"], child, parent_agent)
+        result = _run_single_child(0, _t["goal"], child, parent_agent,
+                                   wall_clock_timeout=effective_wall_clock)
         results.append(result)
     else:
         # Batch -- run in parallel with per-task progress lines
@@ -747,47 +1108,79 @@ def delegate_task(
                     goal=t["goal"],
                     child=child,
                     parent_agent=parent_agent,
+                    wall_clock_timeout=effective_wall_clock,
                 )
                 futures[future] = i
 
-            for future in as_completed(futures):
-                try:
-                    entry = future.result()
-                except Exception as exc:
-                    idx = futures[future]
-                    entry = {
-                        "task_index": idx,
-                        "status": "error",
-                        "summary": None,
-                        "error": str(exc),
-                        "api_calls": 0,
-                        "duration_seconds": 0,
+            # Wrap as_completed loop in try/finally to ensure all futures
+            # are consumed even if display code raises an exception.
+            try:
+                for future in as_completed(futures):
+                    try:
+                        entry = future.result()
+                    except Exception as exc:
+                        idx = futures[future]
+                        logger.exception("[subagent-%d] future raised exception", idx)
+                        entry = {
+                            "task_index": idx,
+                            "status": "error",
+                            "summary": None,
+                            "error": str(exc),
+                            "api_calls": 0,
+                            "duration_seconds": 0,
+                        }
+                    results.append(entry)
+                    completed_count += 1
+
+                    # Print per-task completion line above the spinner
+                    idx = entry["task_index"]
+                    label = task_labels[idx] if idx < len(task_labels) else f"Task {idx}"
+                    dur = entry.get("duration_seconds", 0)
+                    status = entry.get("status", "?")
+                    _STATUS_ICONS = {
+                        "completed": "✓", "timed_out": "⏰",
+                        "interrupted": "⚡", "error": "💥", "failed": "✗",
                     }
-                results.append(entry)
-                completed_count += 1
-
-                # Print per-task completion line above the spinner
-                idx = entry["task_index"]
-                label = task_labels[idx] if idx < len(task_labels) else f"Task {idx}"
-                dur = entry.get("duration_seconds", 0)
-                status = entry.get("status", "?")
-                icon = "✓" if status == "completed" else "✗"
-                remaining = n_tasks - completed_count
-                completion_line = f"{icon} [{idx+1}/{n_tasks}] {label}  ({dur}s)"
-                if spinner_ref:
+                    icon = _STATUS_ICONS.get(status, "✗")
+                    remaining = n_tasks - completed_count
+                    completion_line = f"{icon} [{idx+1}/{n_tasks}] {label}  ({dur}s, {status})"
                     try:
-                        spinner_ref.print_above(completion_line)
+                        if spinner_ref:
+                            spinner_ref.print_above(completion_line)
+                        else:
+                            print(f"  {completion_line}")
                     except Exception:
-                        print(f"  {completion_line}")
-                else:
-                    print(f"  {completion_line}")
+                        logger.debug("Failed to display completion line for task %d", idx)
 
-                # Update spinner text to show remaining count
-                if spinner_ref and remaining > 0:
-                    try:
-                        spinner_ref.update_text(f"🔀 {remaining} task{'s' if remaining != 1 else ''} remaining")
-                    except Exception as e:
-                        logger.debug("Spinner update_text failed: %s", e)
+                    # Update spinner text to show remaining count
+                    if spinner_ref and remaining > 0:
+                        try:
+                            spinner_ref.update_text(f"🔀 {remaining} task{'s' if remaining != 1 else ''} remaining")
+                        except Exception:
+                            pass
+            finally:
+                # Ensure all remaining futures are consumed so orphaned children
+                # don't run indefinitely in the background.
+                for future in futures:
+                    if not future.done():
+                        future.cancel()
+                    elif future not in {f for f in futures if any(
+                        r.get("task_index") == futures[future] for r in results
+                    )}:
+                        # Future completed but wasn't consumed — collect its result
+                        try:
+                            entry = future.result(timeout=0)
+                            results.append(entry)
+                        except Exception as exc:
+                            idx = futures[future]
+                            results.append({
+                                "task_index": idx,
+                                "status": "error",
+                                "summary": None,
+                                "error": f"Uncollected future: {exc}",
+                                "api_calls": 0,
+                                "duration_seconds": 0,
+                            })
 
         # Sort by task_index so results match input order
         results.sort(key=lambda r: r["task_index"])
@@ -906,7 +1299,7 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
 
     # Provider is configured — resolve full credentials
     try:
-        from hermes_cli.runtime_provider import resolve_runtime_provider
+        from bullwhip_cli.runtime_provider import resolve_runtime_provider
         runtime = resolve_runtime_provider(requested=configured_provider)
     except Exception as exc:
         raise ValueError(
@@ -920,7 +1313,7 @@ def _resolve_delegation_credentials(cfg: dict, parent_agent) -> dict:
     if not api_key:
         raise ValueError(
             f"Delegation provider '{configured_provider}' resolved but has no API key. "
-            f"Set the appropriate environment variable or run 'hermes auth'."
+            f"Set the appropriate environment variable or run 'bullwhip auth'."
         )
 
     return {
@@ -938,7 +1331,7 @@ def _load_config() -> dict:
     """Load delegation config from CLI_CONFIG or persistent config.
 
     Checks the runtime config (cli.py CLI_CONFIG) first, then falls back
-    to the persistent config (hermes_cli/config.py load_config()) so that
+    to the persistent config (bullwhip_cli/config.py load_config()) so that
     ``delegation.model`` / ``delegation.provider`` are picked up regardless
     of the entry point (CLI, gateway, cron).
     """
@@ -950,7 +1343,7 @@ def _load_config() -> dict:
     except Exception:
         pass
     try:
-        from hermes_cli.config import load_config
+        from bullwhip_cli.config import load_config
         full = load_config()
         return full.get("delegation", {})
     except Exception:
@@ -986,7 +1379,11 @@ DELEGATE_TASK_SCHEMA = {
         "- Subagents CANNOT call: delegate_task, clarify, memory, send_message, "
         "execute_code.\n"
         "- Each subagent gets its own terminal session (separate working directory and state).\n"
-        "- Results are always returned as an array, one entry per task."
+        "- Results are always returned as an array, one entry per task.\n"
+        "- Each subagent has a wall-clock timeout (default: 15 min). If it "
+        "exceeds this, it is interrupted and partial results are returned.\n"
+        "- Progress is reported in real-time: tool calls, elapsed time, "
+        "iteration count. Users are notified on completion, failure, or timeout."
     ),
     "parameters": {
         "type": "object",
@@ -1076,6 +1473,16 @@ DELEGATE_TASK_SCHEMA = {
                     "Only used when acp_command is set. Example: ['--acp', '--stdio', '--model', 'claude-opus-4-6']"
                 ),
             },
+            "wall_clock_timeout": {
+                "type": "integer",
+                "description": (
+                    "Max wall-clock seconds per subagent before it is interrupted "
+                    "(default: 900 = 15 minutes). Configurable via "
+                    "delegation.wall_clock_timeout in config.yaml or "
+                    "DELEGATION_WALL_CLOCK_TIMEOUT env var. "
+                    "Set higher for long-running tasks."
+                ),
+            },
         },
         "required": [],
     },
@@ -1097,6 +1504,7 @@ registry.register(
         max_iterations=args.get("max_iterations"),
         acp_command=args.get("acp_command"),
         acp_args=args.get("acp_args"),
+        wall_clock_timeout=args.get("wall_clock_timeout"),
         parent_agent=kw.get("parent_agent")),
     check_fn=check_delegate_requirements,
     emoji="🔀",

@@ -90,7 +90,7 @@ def adapter():
         tree=FakeTree(),
         get_channel=lambda _id: None,
         fetch_channel=AsyncMock(),
-        user=SimpleNamespace(id=99999, name="HermesBot"),
+        user=SimpleNamespace(id=99999, name="BullWhipBot"),
     )
     adapter._text_batch_delay_seconds = 0  # disable batching for tests
     return adapter
@@ -182,10 +182,10 @@ async def test_handle_thread_create_slash_dispatches_session_when_message_provid
 
     adapter._dispatch_thread_session = AsyncMock()
 
-    await adapter._handle_thread_create_slash(interaction, "Planning", "Hello Hermes", 1440)
+    await adapter._handle_thread_create_slash(interaction, "Planning", "Hello BullWhip", 1440)
 
     adapter._dispatch_thread_session.assert_awaited_once_with(
-        interaction, "555", "Planning", "Hello Hermes",
+        interaction, "555", "Planning", "Hello BullWhip",
     )
 
 
@@ -529,7 +529,7 @@ def test_discord_auto_thread_config_bridge(monkeypatch, tmp_path):
     from pathlib import Path
 
     # Write a config.yaml the loader will find
-    hermes_dir = tmp_path / ".hermes"
+    hermes_dir = tmp_path / ".bullwhip"
     hermes_dir.mkdir()
     config_path = hermes_dir / "config.yaml"
     config_path.write_text(yaml.dump({
@@ -537,7 +537,7 @@ def test_discord_auto_thread_config_bridge(monkeypatch, tmp_path):
     }))
 
     monkeypatch.delenv("DISCORD_AUTO_THREAD", raising=False)
-    monkeypatch.setenv("HERMES_HOME", str(hermes_dir))
+    monkeypatch.setenv("BULLWHIP_HOME", str(bullwhip_dir))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     from gateway.config import load_gateway_config
@@ -568,7 +568,7 @@ def test_register_skill_group_creates_group(adapter):
     ]
 
     with patch(
-        "hermes_cli.commands.discord_skill_commands_by_category",
+        "bullwhip_cli.commands.discord_skill_commands_by_category",
         return_value=(mock_categories, mock_uncategorized, 0),
     ):
         adapter._register_slash_commands()
@@ -591,7 +591,7 @@ def test_register_skill_group_creates_group(adapter):
 def test_register_skill_group_empty_skills_no_group(adapter):
     """No /skill group should be added when there are zero skills."""
     with patch(
-        "hermes_cli.commands.discord_skill_commands_by_category",
+        "bullwhip_cli.commands.discord_skill_commands_by_category",
         return_value=({}, [], 0),
     ):
         adapter._register_slash_commands()
@@ -609,7 +609,7 @@ def test_register_skill_group_handler_dispatches_command(adapter):
     }
 
     with patch(
-        "hermes_cli.commands.discord_skill_commands_by_category",
+        "bullwhip_cli.commands.discord_skill_commands_by_category",
         return_value=(mock_categories, [], 0),
     ):
         adapter._register_slash_commands()

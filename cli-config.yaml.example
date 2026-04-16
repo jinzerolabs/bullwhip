@@ -1,4 +1,4 @@
-# Hermes Agent CLI Configuration
+# Bull Whip Agent CLI Configuration
 # Copy this file to cli-config.yaml and customize as needed.
 # This file configures the CLI behavior. Environment variables in .env take precedence.
 
@@ -13,10 +13,10 @@ model:
   # Inference provider selection:
   #   "auto"         - Auto-detect from credentials (default)
   #   "openrouter"   - OpenRouter (requires: OPENROUTER_API_KEY or OPENAI_API_KEY)
-  #   "nous"         - Nous Portal OAuth (requires: hermes login)
+  #   "nous"         - Nous Portal OAuth (requires: bullwhip login)
   #   "nous-api"     - Nous Portal API key (requires: NOUS_API_KEY)
   #   "anthropic"    - Direct Anthropic API (requires: ANTHROPIC_API_KEY)
-  #   "openai-codex" - OpenAI Codex (requires: hermes login --provider openai-codex)
+  #   "openai-codex" - OpenAI Codex (requires: bullwhip login --provider openai-codex)
   #   "copilot"      - GitHub Copilot / GitHub Models (requires: GITHUB_TOKEN)
   #   "gemini"      - Use Google AI Studio direct (requires: GOOGLE_API_KEY or GEMINI_API_KEY)
   #   "zai"         - Use z.ai / ZhipuAI GLM models (requires: GLM_API_KEY)
@@ -43,7 +43,7 @@ model:
   #   Set OLLAMA_API_KEY in .env — automatically picked up when base_url
   #   points to ollama.com.
   #
-  # Can also be overridden with --provider flag or HERMES_INFERENCE_PROVIDER env var.
+  # Can also be overridden with --provider flag or BULLWHIP_INFERENCE_PROVIDER env var.
   provider: "auto"
   
   # API configuration (falls back to OPENROUTER_API_KEY env var)
@@ -130,7 +130,7 @@ model:
 # Commands run directly on your machine in the current directory
 # -----------------------------------------------------------------------------
 # Working directory behavior:
-#   - CLI (`hermes` command): Uses "." (current directory where you run hermes)
+#   - CLI (`bullwhip` command): Uses "." (current directory where you run bullwhip)
 #   - Messaging (Telegram/Discord): Uses MESSAGING_CWD from .env (default: home)
 terminal:
   backend: "local"
@@ -169,7 +169,7 @@ terminal:
 #   docker_image: "nikolaik/python-nodejs:python3.11-nodejs20"
 #   docker_mount_cwd_to_workspace: true   # Explicit opt-in: mount your launch cwd into /workspace
 #   # Optional: explicitly forward selected env vars into Docker.
-#   # These values come from your current shell first, then ~/.hermes/.env.
+#   # These values come from your current shell first, then ~/.bullwhip/.env.
 #   # Warning: anything forwarded here is visible to commands run in the container.
 #   docker_forward_env:
 #     - "GITHUB_TOKEN"
@@ -316,7 +316,7 @@ compression:
 # =============================================================================
 # Auxiliary Models (Advanced — Experimental)
 # =============================================================================
-# Hermes uses lightweight "auxiliary" models for side tasks: image analysis,
+# Bull Whip uses lightweight "auxiliary" models for side tasks: image analysis,
 # browser screenshot analysis, web page summarization, and context compression.
 #
 # By default these use Gemini Flash via OpenRouter or Nous Portal and are
@@ -335,9 +335,9 @@ compression:
 # Provider options:
 #   "auto"       - Best available: OpenRouter → Nous Portal → main endpoint (default)
 #   "openrouter" - Force OpenRouter (requires OPENROUTER_API_KEY)
-#   "nous"       - Force Nous Portal (requires: hermes login)
+#   "nous"       - Force Nous Portal (requires: bullwhip login)
 #   "gemini"      - Force Google AI Studio direct (requires: GOOGLE_API_KEY or GEMINI_API_KEY)
-#   "codex"       - Force Codex OAuth (requires: hermes model → Codex).
+#   "codex"       - Force Codex OAuth (requires: bullwhip model → Codex).
 #                  Uses gpt-5.3-codex which supports vision.
 #   "main"       - Use your custom endpoint (OPENAI_BASE_URL + OPENAI_API_KEY).
 #                  Works with OpenAI API, local models, or any OpenAI-compatible
@@ -449,9 +449,9 @@ skills:
   creation_nudge_interval: 15
 
   # External skill directories — share skills across tools/agents without
-  # copying them into ~/.hermes/skills/.  Each path is expanded (~ and ${VAR})
+  # copying them into ~/.bullwhip/skills/.  Each path is expanded (~ and ${VAR})
   # and resolved to an absolute path.  External dirs are read-only: skill
-  # creation always writes to ~/.hermes/skills/.  Local skills take precedence
+  # creation always writes to ~/.bullwhip/skills/.  Local skills take precedence
   # when names collide.
   # external_dirs:
   #   - ~/.agents/skills
@@ -511,7 +511,7 @@ agent:
 # Toolsets
 # =============================================================================
 # Control which tools the agent has access to.
-# Use `hermes tools` to interactively enable/disable tools per platform.
+# Use `bullwhip tools` to interactively enable/disable tools per platform.
 
 # =============================================================================
 # Platform Toolsets (per-platform tool configuration)
@@ -520,7 +520,7 @@ agent:
 # If a platform isn't listed here, its built-in default is used.
 #
 # You can use EITHER:
-#   - A preset like "hermes-cli" or "hermes-telegram" (curated tool set)
+#   - A preset like "bullwhip-cli" or "bullwhip-telegram" (curated tool set)
 #   - A list of individual toolsets to compose your own (see list below)
 #
 # Supported platform keys: cli, telegram, discord, whatsapp, slack, qqbot
@@ -529,8 +529,8 @@ agent:
 #
 #   # Use presets (same as defaults):
 #   platform_toolsets:
-#     cli: [hermes-cli]
-#     telegram: [hermes-telegram]
+#     cli: [bullwhip-cli]
+#     telegram: [bullwhip-telegram]
 #
 #   # Custom: give Telegram only web + terminal + file + planning:
 #   platform_toolsets:
@@ -545,30 +545,30 @@ agent:
 #     discord: [web, vision, skills, todo]
 #
 # If not set, defaults are:
-#   cli:           hermes-cli            (everything + cronjob management)
-#   telegram:      hermes-telegram       (terminal, file, web, vision, image, tts, browser, skills, todo, cronjob, messaging)
-#   discord:       hermes-discord        (same as telegram)
-#   whatsapp:      hermes-whatsapp       (same as telegram)
-#   slack:         hermes-slack          (same as telegram)
-#   signal:        hermes-signal         (same as telegram)
-#   homeassistant: hermes-homeassistant  (same as telegram)
-#   qqbot:            hermes-qqbot            (same as telegram)
+#   cli:           bullwhip-cli            (everything + cronjob management)
+#   telegram:      bullwhip-telegram       (terminal, file, web, vision, image, tts, browser, skills, todo, cronjob, messaging)
+#   discord:       bullwhip-discord        (same as telegram)
+#   whatsapp:      bullwhip-whatsapp       (same as telegram)
+#   slack:         bullwhip-slack          (same as telegram)
+#   signal:        bullwhip-signal         (same as telegram)
+#   homeassistant: bullwhip-homeassistant  (same as telegram)
+#   qqbot:            bullwhip-qqbot            (same as telegram)
 #
 platform_toolsets:
-  cli: [hermes-cli]
-  telegram: [hermes-telegram]
-  discord: [hermes-discord]
-  whatsapp: [hermes-whatsapp]
-  slack: [hermes-slack]
-  signal: [hermes-signal]
-  homeassistant: [hermes-homeassistant]
-  qqbot: [hermes-qqbot]
+  cli: [bullwhip-cli]
+  telegram: [bullwhip-telegram]
+  discord: [bullwhip-discord]
+  whatsapp: [bullwhip-whatsapp]
+  slack: [bullwhip-slack]
+  signal: [bullwhip-signal]
+  homeassistant: [bullwhip-homeassistant]
+  qqbot: [bullwhip-qqbot]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Available toolsets (use these names in platform_toolsets or the toolsets list)
 #
-# Run `hermes chat --list-toolsets` to see all toolsets and their tools.
-# Run `hermes chat --list-tools` to see every individual tool with descriptions.
+# Run `bullwhip chat --list-toolsets` to see all toolsets and their tools.
+# Run `bullwhip chat --list-tools` to see every individual tool with descriptions.
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # INDIVIDUAL TOOLSETS (compose your own):
@@ -590,12 +590,12 @@ platform_toolsets:
 #   rl           - rl_list_environments, rl_start_training, etc. (requires TINKER_API_KEY)
 #
 # PRESETS (curated bundles):
-#   hermes-cli       - All of the above except rl + send_message
-#   hermes-telegram  - terminal, file, web, vision, image_gen, tts, browser,
+#   bullwhip-cli       - All of the above except rl + send_message
+#   bullwhip-telegram  - terminal, file, web, vision, image_gen, tts, browser,
 #                      skills, todo, cronjob, send_message
-#   hermes-discord   - Same as hermes-telegram
-#   hermes-whatsapp  - Same as hermes-telegram
-#   hermes-slack     - Same as hermes-telegram
+#   bullwhip-discord   - Same as bullwhip-telegram
+#   bullwhip-whatsapp  - Same as bullwhip-telegram
+#   bullwhip-slack     - Same as bullwhip-telegram
 #
 # COMPOSITE:
 #   debugging    - terminal + web + file
@@ -624,9 +624,9 @@ platform_toolsets:
 
 # NOTE: The top-level "toolsets" key is deprecated and ignored.
 # Tool configuration is managed per-platform via platform_toolsets above.
-# Use `hermes tools` to configure interactively, or edit platform_toolsets directly.
+# Use `bullwhip tools` to configure interactively, or edit platform_toolsets directly.
 #
-# CLI override: hermes chat --toolsets terminal,web,file
+# CLI override: bullwhip chat --toolsets terminal,web,file
 
 # =============================================================================
 # MCP (Model Context Protocol) Servers
@@ -736,10 +736,42 @@ code_execution:
 delegation:
   max_iterations: 50                          # Max tool-calling turns per child (default: 50)
   default_toolsets: ["terminal", "file", "web"]  # Default toolsets for subagents
+  wall_clock_timeout: 900                     # Max seconds per subagent before timeout (default: 900 = 15 min)
   # model: "google/gemini-3-flash-preview"    # Override model for subagents (empty = inherit parent)
   # provider: "openrouter"                    # Override provider for subagents (empty = inherit parent)
   #                                           # Resolves full credentials (base_url, api_key) automatically.
   #                                           # Supported: openrouter, nous, zai, kimi-coding, minimax
+  # reasoning_effort: "none"                  # Reasoning effort for subagents (none/minimal/low/medium/high)
+  # manager_mode: false                       # When true, the agent acts as a pure project manager:
+  #                                           #   - NEVER executes work directly (no terminal, file, browser)
+  #                                           #   - ALWAYS delegates to subagents via delegate_task
+  #                                           #   - Only uses clarify, memory, and delegate_task tools
+  #
+  # workers:                                  # Define available workers for manager mode routing.
+  #   claude:                                 # Worker name (used in logs and prompts)
+  #     command: "claude"                     # ACP command to spawn this worker
+  #     args: ["--acp", "--stdio"]            # ACP args
+  #     role: "complex"                       # Routing hint: "complex" or "simple"
+  #     description: "Claude Code — reliable, handles complex multi-file tasks"
+  #   codex:
+  #     command: "codex"
+  #     args: ["--acp", "--stdio"]
+  #     role: "simple"
+  #     description: "Codex — fast but may disconnect, best for small parallel tasks"
+  #
+  # Example: full manager mode setup
+  #   manager_mode: true
+  #   workers:
+  #     claude:
+  #       command: "claude"
+  #       args: ["--acp", "--stdio"]
+  #       role: "complex"
+  #       description: "Reliable, for architecture/debugging/multi-file refactoring"
+  #     codex:
+  #       command: "codex"
+  #       args: ["--acp", "--stdio"]
+  #       role: "simple"
+  #       description: "Fast parallel worker, keep tasks small and independent"
 
 # =============================================================================
 # Honcho Integration (Cross-Session User Modeling)
@@ -750,9 +782,9 @@ delegation:
 #
 # Requires: pip install honcho-ai
 # Config: ~/.honcho/config.json (shared with Claude Code, Cursor, etc.)
-# API key: HONCHO_API_KEY in ~/.hermes/.env or ~/.honcho/config.json
+# API key: HONCHO_API_KEY in ~/.bullwhip/.env or ~/.honcho/config.json
 #
-# Hermes-specific overrides (optional — most config comes from ~/.honcho/config.json):
+# Bull Whip-specific overrides (optional — most config comes from ~/.honcho/config.json):
 # honcho: {}
 
 # =============================================================================
@@ -819,7 +851,7 @@ display:
   #   mono     — Clean grayscale monochrome
   #   slate    — Cool blue developer-focused
   #
-  # Custom skins: drop a YAML file in ~/.hermes/skins/<name>.yaml
+  # Custom skins: drop a YAML file in ~/.bullwhip/skins/<name>.yaml
   # Schema (all fields optional, missing values inherit from default):
   #
   #   name: my-theme

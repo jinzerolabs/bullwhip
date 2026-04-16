@@ -15,7 +15,7 @@ RUN apt-get update && \
         build-essential nodejs npm python3 ripgrep ffmpeg gcc python3-dev libffi-dev procps git && \
     rm -rf /var/lib/apt/lists/*
 
-# Non-root user for runtime; UID can be overridden via HERMES_UID at runtime
+# Non-root user for runtime; UID can be overridden via BULLWHIP_UID at runtime
 RUN useradd -u 10000 -m -d /opt/data hermes
 
 COPY --chmod=0755 --from=gosu_source /gosu /usr/local/bin/
@@ -41,6 +41,6 @@ RUN uv venv && \
 USER root
 RUN chmod +x /opt/hermes/docker/entrypoint.sh
 
-ENV HERMES_HOME=/opt/data
+ENV BULLWHIP_HOME=/opt/data
 VOLUME [ "/opt/data" ]
 ENTRYPOINT [ "/opt/hermes/docker/entrypoint.sh" ]

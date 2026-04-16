@@ -1,64 +1,106 @@
-/venv/
-/_pycache/
-*.pyc*
+# ── Python ───────────────────────────────────────────────────────────
 __pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
 .venv/
+/venv/
+
+# ── Node ─────────────────────────────────────────────────────────────
+node_modules/
+
+# ── IDE / Editor ─────────────────────────────────────────────────────
 .vscode/
+.idea/
+
+# ── Sensitive / secrets ──────────────────────────────────────────────
+# Environment files (API keys, tokens, passwords)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.development
-.env.test
+.env.*
+!.env.example
 export*
-__pycache__/model_tools.cpython-310.pyc
-__pycache__/web_tools.cpython-310.pyc
+
+# API keys & credentials
+*.key
+*.pem
+*.ppk
+*.p12
+*.pfx
+*.jks
+*.keystore
+privvy*
+credentials.json
+service-account*.json
+*-credentials.yaml
+*-credentials.yml
+secrets.yaml
+secrets.yml
+secrets.json
+**/secrets/
+
+# OAuth / token caches
+token.json
+token.pickle
+.tokens/
+oauth2.json
+
+# SSH keys (if accidentally placed in repo)
+id_rsa
+id_ed25519
+id_ecdsa
+*.pub
+!docs/**/*.pub
+
+# Config files that may contain real API URLs / keys
+cli-config.yaml
+config.local.yaml
+config.local.yml
+*.local.yaml
+*.local.yml
+
+# ── Runtime / generated ──────────────────────────────────────────────
 logs/
 data/
-.pytest_cache/
 tmp/
 temp_vision_images/
+images/*
+!images/main.png
+wandb/
+testlogs/
+source-data/
 hermes-*/*
+
+# ── Project-specific ignores ────────────────────────────────────────
 examples/
 tests/quick_test_dataset.jsonl
 tests/sample_dataset.jsonl
-run_datagen_kimik2-thinking.sh
-run_datagen_megascience_glm4-6.sh
-run_datagen_sonnet.sh
-source-data/*
-run_datagen_megascience_glm4-6.sh
-data/*
-node_modules/
+run_datagen_*.sh
 browser-use/
 agent-browser/
-# Private keys
-*.ppk
-*.pem
-privvy*
-images/
-__pycache__/
-hermes_agent.egg-info/
-wandb/
-testlogs
-
-# CLI config (may contain sensitive SSH paths)
-cli-config.yaml
-
-# Skills Hub state (lives in ~/.hermes/skills/.hub/ at runtime, but just in case)
-skills/.hub/
 ignored/
-.worktrees/
-environments/benchmarks/evals/
+mini-swe-agent/
+
+# Skills Hub state
+skills/.hub/
 
 # Web UI build output
-hermes_cli/web_dist/
+bullwhip_cli/web_dist/
 
 # Release script temp files
 .release_notes.md
-mini-swe-agent/
+
+# Git worktrees
+.worktrees/
+
+# RL benchmarks
+environments/benchmarks/evals/
 
 # Nix
 .direnv/
 result
+
+# Docusaurus generated
 website/static/api/skills-index.json

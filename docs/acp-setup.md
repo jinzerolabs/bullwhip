@@ -1,16 +1,16 @@
-# Hermes Agent — ACP (Agent Client Protocol) Setup Guide
+# Bull Whip Agent — ACP (Agent Client Protocol) Setup Guide
 
-Hermes Agent supports the **Agent Client Protocol (ACP)**, allowing it to run as
-a coding agent inside your editor. ACP lets your IDE send tasks to Hermes, and
-Hermes responds with file edits, terminal commands, and explanations — all shown
+Bull Whip Agent supports the **Agent Client Protocol (ACP)**, allowing it to run as
+a coding agent inside your editor. ACP lets your IDE send tasks to Bull Whip, and
+Bull Whip responds with file edits, terminal commands, and explanations — all shown
 natively in the editor UI.
 
 ---
 
 ## Prerequisites
 
-- Hermes Agent installed and configured (`hermes setup` completed)
-- An API key / provider set up in `~/.hermes/.env` or via `hermes login`
+- Bull Whip Agent installed and configured (`bullwhip setup` completed)
+- An API key / provider set up in `~/.bullwhip/.env` or via `bullwhip login`
 - Python 3.11+
 
 Install the ACP extra:
@@ -45,22 +45,22 @@ Open your VS Code settings (`Ctrl+,` → click the `{}` icon for JSON) and add:
 {
   "acpClient.agents": [
     {
-      "name": "hermes-agent",
-      "registryDir": "/path/to/hermes-agent/acp_registry"
+      "name": "bullwhip-agent",
+      "registryDir": "/path/to/bullwhip-agent/acp_registry"
     }
   ]
 }
 ```
 
-Replace `/path/to/hermes-agent` with the actual path to your Hermes Agent
-installation (e.g. `~/.hermes/hermes-agent`).
+Replace `/path/to/bullwhip-agent` with the actual path to your Bull Whip Agent
+installation (e.g. `~/.bullwhip/bullwhip-agent`).
 
-Alternatively, if `hermes` is on your PATH, the ACP Client can discover it
+Alternatively, if `bullwhip` is on your PATH, the ACP Client can discover it
 automatically via the registry directory.
 
 ### 3. Restart VS Code
 
-After configuring, restart VS Code. You should see **Hermes Agent** appear in
+After configuring, restart VS Code. You should see **Bull Whip Agent** appear in
 the ACP agent picker in the chat/agent panel.
 
 ---
@@ -77,9 +77,9 @@ Open Zed settings (`Cmd+,` on macOS or `Ctrl+,` on Linux) and add to your
 ```json
 {
   "agent_servers": {
-    "hermes-agent": {
+    "bullwhip-agent": {
       "type": "custom",
-      "command": "hermes",
+      "command": "bullwhip",
       "args": ["acp"],
     },
   },
@@ -88,7 +88,7 @@ Open Zed settings (`Cmd+,` on macOS or `Ctrl+,` on Linux) and add to your
 
 ### 2. Restart Zed
 
-Hermes Agent will appear in the agent panel. Select it and start a conversation.
+Bull Whip Agent will appear in the agent panel. Select it and start a conversation.
 
 ---
 
@@ -105,38 +105,38 @@ Hermes Agent will appear in the agent panel. Select it and start a conversation.
 - Open **Settings** → **Tools** → **ACP Agents**
 - Click **+** to add a new agent
 - Set the registry directory to your `acp_registry/` folder:
-  `/path/to/hermes-agent/acp_registry`
+  `/path/to/bullwhip-agent/acp_registry`
 - Click **OK**
 
 ### 3. Use the agent
 
-Open the ACP panel (usually in the right sidebar) and select **Hermes Agent**.
+Open the ACP panel (usually in the right sidebar) and select **Bull Whip Agent**.
 
 ---
 
 ## What You Will See
 
-Once connected, your editor provides a native interface to Hermes Agent:
+Once connected, your editor provides a native interface to Bull Whip Agent:
 
 ### Chat Panel
 A conversational interface where you can describe tasks, ask questions, and
-give instructions. Hermes responds with explanations and actions.
+give instructions. Bull Whip responds with explanations and actions.
 
 ### File Diffs
-When Hermes edits files, you see standard diffs in the editor. You can:
+When Bull Whip edits files, you see standard diffs in the editor. You can:
 - **Accept** individual changes
 - **Reject** changes you don't want
 - **Review** the full diff before applying
 
 ### Terminal Commands
-When Hermes needs to run shell commands (builds, tests, installs), the editor
+When Bull Whip needs to run shell commands (builds, tests, installs), the editor
 shows them in an integrated terminal. Depending on your settings:
 - Commands may run automatically
 - Or you may be prompted to **approve** each command
 
 ### Approval Flow
 For potentially destructive operations, the editor will prompt you for
-approval before Hermes proceeds. This includes:
+approval before Bull Whip proceeds. This includes:
 - File deletions
 - Shell commands
 - Git operations
@@ -145,29 +145,29 @@ approval before Hermes proceeds. This includes:
 
 ## Configuration
 
-Hermes Agent under ACP uses the **same configuration** as the CLI:
+Bull Whip Agent under ACP uses the **same configuration** as the CLI:
 
-- **API keys / providers**: `~/.hermes/.env`
-- **Agent config**: `~/.hermes/config.yaml`
-- **Skills**: `~/.hermes/skills/`
-- **Sessions**: `~/.hermes/state.db`
+- **API keys / providers**: `~/.bullwhip/.env`
+- **Agent config**: `~/.bullwhip/config.yaml`
+- **Skills**: `~/.bullwhip/skills/`
+- **Sessions**: `~/.bullwhip/state.db`
 
-You can run `hermes setup` to configure providers, or edit `~/.hermes/.env`
+You can run `bullwhip setup` to configure providers, or edit `~/.bullwhip/.env`
 directly.
 
 ### Changing the model
 
-Edit `~/.hermes/config.yaml`:
+Edit `~/.bullwhip/config.yaml`:
 
 ```yaml
-model: openrouter/nous/hermes-3-llama-3.1-70b
+model: openrouter/nous/bullwhip-3-llama-3.1-70b
 ```
 
-Or set the `HERMES_MODEL` environment variable.
+Or set the `BULLWHIP_MODEL` environment variable.
 
 ### Toolsets
 
-ACP sessions use the curated `hermes-acp` toolset by default. It is designed for editor workflows and intentionally excludes things like messaging delivery, cronjob management, and audio-first UX features.
+ACP sessions use the curated `bullwhip-acp` toolset by default. It is designed for editor workflows and intentionally excludes things like messaging delivery, cronjob management, and audio-first UX features.
 
 ---
 
@@ -177,15 +177,15 @@ ACP sessions use the curated `hermes-acp` toolset by default. It is designed for
 
 1. **Check the registry path** — make sure the `acp_registry/` directory path
    in your editor settings is correct and contains `agent.json`.
-2. **Check `hermes` is on PATH** — run `which hermes` in a terminal. If not
+2. **Check `bullwhip` is on PATH** — run `which bullwhip` in a terminal. If not
    found, you may need to activate your virtualenv or add it to PATH.
 3. **Restart the editor** after changing settings.
 
 ### Agent starts but errors immediately
 
-1. Run `hermes doctor` to check your configuration.
-2. Check that you have a valid API key: `hermes status`
-3. Try running `hermes acp` directly in a terminal to see error output.
+1. Run `bullwhip doctor` to check your configuration.
+2. Check that you have a valid API key: `bullwhip status`
+3. Try running `bullwhip acp` directly in a terminal to see error output.
 
 ### "Module not found" errors
 
@@ -208,15 +208,15 @@ settings for auto-approval or manual-approval preferences.
 
 ### Logs
 
-Hermes logs are written to stderr when running in ACP mode. Check:
-- VS Code: **Output** panel → select **ACP Client** or **Hermes Agent**
+Bull Whip logs are written to stderr when running in ACP mode. Check:
+- VS Code: **Output** panel → select **ACP Client** or **Bull Whip Agent**
 - Zed: **View** → **Toggle Terminal** and check the process output
 - JetBrains: **Event Log** or the ACP tool window
 
 You can also enable verbose logging:
 
 ```bash
-HERMES_LOG_LEVEL=DEBUG hermes acp
+BULLWHIP_LOG_LEVEL=DEBUG bullwhip acp
 ```
 
 ---
@@ -224,5 +224,5 @@ HERMES_LOG_LEVEL=DEBUG hermes acp
 ## Further Reading
 
 - [ACP Specification](https://github.com/anysphere/acp)
-- [Hermes Agent Documentation](https://github.com/NousResearch/hermes-agent)
-- Run `hermes --help` for all CLI options
+- [Bull Whip Agent Documentation](https://github.com/ZeroLabsKorea/bullwhip-agent)
+- Run `bullwhip --help` for all CLI options

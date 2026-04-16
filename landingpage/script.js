@@ -1,12 +1,12 @@
 // =========================================================================
-// Hermes Agent Landing Page — Interactions
+// Bull Whip Agent Landing Page — Interactions
 // =========================================================================
 
 // --- Platform install commands ---
 const PLATFORMS = {
   linux: {
     command:
-      "curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash",
+      "curl -fsSL https://raw.githubusercontent.com/NousResearch/bullwhip-agent/main/scripts/install.sh | bash",
     prompt: "$",
     note: "Works on Linux, macOS & WSL2 · No prerequisites · Installs everything automatically",
     stepNote:
@@ -223,7 +223,7 @@ const demoSequence = [
   { type: "prompt", text: "❯ " },
   {
     type: "type",
-    text: "Review the PR at NousResearch/hermes-agent#42 and fix any issues",
+    text: "Review the PR at NousResearch/bullwhip-agent#42 and fix any issues",
     delay: 30,
   },
   { type: "pause", ms: 600 },
@@ -384,7 +384,7 @@ class TerminalDemo {
   }
 }
 
-// --- Noise Overlay (ported from hermes-chat NoiseOverlay) ---
+// --- Noise Overlay (ported from bullwhip-chat NoiseOverlay) ---
 function initNoiseOverlay() {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   if (typeof THREE === "undefined") return;

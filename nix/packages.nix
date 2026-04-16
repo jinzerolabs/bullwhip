@@ -1,4 +1,4 @@
-# nix/packages.nix — Hermes Agent package built with uv2nix
+# nix/packages.nix — Bull Whip Agent package built with uv2nix
 { inputs, ... }: {
   perSystem = { pkgs, system, ... }:
     let
@@ -20,7 +20,7 @@
       runtimePath = pkgs.lib.makeBinPath runtimeDeps;
     in {
       packages.default = pkgs.stdenv.mkDerivation {
-        pname = "hermes-agent";
+        pname = "bullwhip-agent";
         version = (builtins.fromTOML (builtins.readFile ../pyproject.toml)).project.version;
 
         dontUnpack = true;
@@ -30,22 +30,22 @@
         installPhase = ''
           runHook preInstall
 
-          mkdir -p $out/share/hermes-agent $out/bin
-          cp -r ${bundledSkills} $out/share/hermes-agent/skills
+          mkdir -p $out/share/bullwhip-agent $out/bin
+          cp -r ${bundledSkills} $out/share/bullwhip-agent/skills
 
           ${pkgs.lib.concatMapStringsSep "\n" (name: ''
             makeWrapper ${hermesVenv}/bin/${name} $out/bin/${name} \
               --suffix PATH : "${runtimePath}" \
-              --set HERMES_BUNDLED_SKILLS $out/share/hermes-agent/skills
-          '') [ "hermes" "hermes-agent" "hermes-acp" ]}
+              --set BULLWHIP_BUNDLED_SKILLS $out/share/bullwhip-agent/skills
+          '') [ "bullwhip" "bullwhip-agent" "bullwhip-acp" ]}
 
           runHook postInstall
         '';
 
         meta = with pkgs.lib; {
           description = "AI agent with advanced tool-calling capabilities";
-          homepage = "https://github.com/NousResearch/hermes-agent";
-          mainProgram = "hermes";
+          homepage = "https://github.com/NousResearch/bullwhip-agent";
+          mainProgram = "bullwhip";
           license = licenses.mit;
           platforms = platforms.unix;
         };

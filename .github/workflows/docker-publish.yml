@@ -18,7 +18,7 @@ concurrency:
 jobs:
   build-and-push:
     # Only run on the upstream repository, not on forks
-    if: github.repository == 'NousResearch/hermes-agent'
+    if: github.repository == 'ZeroLabsKorea/bullwhip-agent'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -43,16 +43,16 @@ jobs:
           file: Dockerfile
           load: true
           platforms: linux/amd64
-          tags: nousresearch/hermes-agent:test
+          tags: zerolabskorea/bullwhip-agent:test
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Test image starts
         run: |
           docker run --rm \
-            -v /tmp/hermes-test:/opt/data \
-            --entrypoint /opt/hermes/docker/entrypoint.sh \
-            nousresearch/hermes-agent:test --help
+            -v /tmp/bullwhip-test:/opt/data \
+            --entrypoint /opt/bullwhip/docker/entrypoint.sh \
+            zerolabskorea/bullwhip-agent:test --help
 
       - name: Log in to Docker Hub
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'release'
@@ -69,7 +69,7 @@ jobs:
           file: Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: nousresearch/hermes-agent:latest
+          tags: zerolabskorea/bullwhip-agent:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -81,6 +81,6 @@ jobs:
           file: Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: nousresearch/hermes-agent:${{ github.event.release.tag_name }}
+          tags: zerolabskorea/bullwhip-agent:${{ github.event.release.tag_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

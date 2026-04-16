@@ -1,35 +1,35 @@
 #!/bin/bash
-# Docker entrypoint: bootstrap config files into the mounted volume, then run hermes.
+# Docker entrypoint: bootstrap config files into the mounted volume, then run bullwhip.
 set -e
 
-HERMES_HOME="/opt/data"
-INSTALL_DIR="/opt/hermes"
+BULLWHIP_HOME="/opt/data"
+INSTALL_DIR="/opt/bullwhip"
 
 # --- Privilege dropping via gosu ---
-# When started as root (the default), optionally remap the hermes user/group
-# to match host-side ownership, fix volume permissions, then re-exec as hermes.
+# When started as root (the default), optionally remap the bullwhip user/group
+# to match host-side ownership, fix volume permissions, then re-exec as bullwhip.
 if [ "$(id -u)" = "0" ]; then
-    if [ -n "$HERMES_UID" ] && [ "$HERMES_UID" != "$(id -u hermes)" ]; then
-        echo "Changing hermes UID to $HERMES_UID"
-        usermod -u "$HERMES_UID" hermes
+    if [ -n "$BULLWHIP_UID" ] && [ "$BULLWHIP_UID" != "$(id -u bullwhip)" ]; then
+        echo "Changing bullwhip UID to $BULLWHIP_UID"
+        usermod -u "$BULLWHIP_UID" bullwhip
     fi
 
-    if [ -n "$HERMES_GID" ] && [ "$HERMES_GID" != "$(id -g hermes)" ]; then
-        echo "Changing hermes GID to $HERMES_GID"
-        groupmod -g "$HERMES_GID" hermes
+    if [ -n "$BULLWHIP_GID" ] && [ "$BULLWHIP_GID" != "$(id -g bullwhip)" ]; then
+        echo "Changing bullwhip GID to $BULLWHIP_GID"
+        groupmod -g "$BULLWHIP_GID" bullwhip
     fi
 
-    actual_hermes_uid=$(id -u hermes)
-    if [ "$(stat -c %u "$HERMES_HOME" 2>/dev/null)" != "$actual_hermes_uid" ]; then
-        echo "$HERMES_HOME is not owned by $actual_hermes_uid, fixing"
-        chown -R hermes:hermes "$HERMES_HOME"
+    actual_hermes_uid=$(id -u bullwhip)
+    if [ "$(stat -c %u "$BULLWHIP_HOME" 2>/dev/null)" != "$actual_hermes_uid" ]; then
+        echo "$BULLWHIP_HOME is not owned by $actual_hermes_uid, fixing"
+        chown -R bullwhip:bullwhip "$BULLWHIP_HOME"
     fi
 
     echo "Dropping root privileges"
-    exec gosu hermes "$0" "$@"
+    exec gosu bullwhip "$0" "$@"
 fi
 
-# --- Running as hermes from here ---
+# --- Running as bullwhip from here ---
 source "${INSTALL_DIR}/.venv/bin/activate"
 
 # Create essential directory structure.  Cache and platform directories
@@ -39,21 +39,21 @@ source "${INSTALL_DIR}/.venv/bin/activate"
 # The "home/" subdirectory is a per-profile HOME for subprocesses (git,
 # ssh, gh, npm …).  Without it those tools write to /root which is
 # ephemeral and shared across profiles.  See issue #4426.
-mkdir -p "$HERMES_HOME"/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
+mkdir -p "$BULLWHIP_HOME"/{cron,sessions,logs,hooks,memories,skills,skins,plans,workspace,home}
 
 # .env
-if [ ! -f "$HERMES_HOME/.env" ]; then
-    cp "$INSTALL_DIR/.env.example" "$HERMES_HOME/.env"
+if [ ! -f "$BULLWHIP_HOME/.env" ]; then
+    cp "$INSTALL_DIR/.env.example" "$BULLWHIP_HOME/.env"
 fi
 
 # config.yaml
-if [ ! -f "$HERMES_HOME/config.yaml" ]; then
-    cp "$INSTALL_DIR/cli-config.yaml.example" "$HERMES_HOME/config.yaml"
+if [ ! -f "$BULLWHIP_HOME/config.yaml" ]; then
+    cp "$INSTALL_DIR/cli-config.yaml.example" "$BULLWHIP_HOME/config.yaml"
 fi
 
 # SOUL.md
-if [ ! -f "$HERMES_HOME/SOUL.md" ]; then
-    cp "$INSTALL_DIR/docker/SOUL.md" "$HERMES_HOME/SOUL.md"
+if [ ! -f "$BULLWHIP_HOME/SOUL.md" ]; then
+    cp "$INSTALL_DIR/docker/SOUL.md" "$BULLWHIP_HOME/SOUL.md"
 fi
 
 # Sync bundled skills (manifest-based so user edits are preserved)
@@ -61,4 +61,4 @@ if [ -d "$INSTALL_DIR/skills" ]; then
     python3 "$INSTALL_DIR/tools/skills_sync.py"
 fi
 
-exec hermes "$@"
+exec bullwhip "$@"

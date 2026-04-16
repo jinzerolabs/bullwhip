@@ -1,21 +1,21 @@
 ---
 name: honcho
-description: Configure and use Honcho memory with Hermes -- cross-session user modeling, multi-profile peer isolation, observation config, and dialectic reasoning. Use when setting up Honcho, troubleshooting memory, managing profiles with Honcho peers, or tuning observation and recall settings.
+description: Configure and use Honcho memory with Bull Whip -- cross-session user modeling, multi-profile peer isolation, observation config, and dialectic reasoning. Use when setting up Honcho, troubleshooting memory, managing profiles with Honcho peers, or tuning observation and recall settings.
 version: 1.0.0
-author: Hermes Agent
+author: Bull Whip Agent
 license: MIT
 metadata:
-  hermes:
+  bullwhip:
     tags: [Honcho, Memory, Profiles, Observation, Dialectic, User-Modeling]
     homepage: https://docs.honcho.dev
-    related_skills: [hermes-agent]
+    related_skills: [bullwhip-agent]
 prerequisites:
   pip: [honcho-ai]
 ---
 
-# Honcho Memory for Hermes
+# Honcho Memory for Bull Whip
 
-Honcho provides AI-native cross-session user modeling. It learns who the user is across conversations and gives every Hermes profile its own peer identity while sharing a unified view of the user.
+Honcho provides AI-native cross-session user modeling. It learns who the user is across conversations and gives every Bull Whip profile its own peer identity while sharing a unified view of the user.
 
 ## When to Use
 
@@ -30,33 +30,33 @@ Honcho provides AI-native cross-session user modeling. It learns who the user is
 ### Cloud (app.honcho.dev)
 
 ```bash
-hermes honcho setup
+bullwhip honcho setup
 # select "cloud", paste API key from https://app.honcho.dev
 ```
 
 ### Self-hosted
 
 ```bash
-hermes honcho setup
+bullwhip honcho setup
 # select "local", enter base URL (e.g. http://localhost:8000)
 ```
 
-See: https://docs.honcho.dev/v3/guides/integrations/hermes#running-honcho-locally-with-hermes
+See: https://docs.honcho.dev/v3/guides/integrations/bullwhip#running-honcho-locally-with-bullwhip
 
 ### Verify
 
 ```bash
-hermes honcho status    # shows resolved config, connection test, peer info
+bullwhip honcho status    # shows resolved config, connection test, peer info
 ```
 
 ## Architecture
 
 ### Peers
 
-Honcho models conversations as interactions between **peers**. Hermes creates two peers per session:
+Honcho models conversations as interactions between **peers**. Bull Whip creates two peers per session:
 
 - **User peer** (`peerName`): represents the human. Honcho builds a user representation from observed messages.
-- **AI peer** (`aiPeer`): represents this Hermes instance. Each profile gets its own AI peer so agents develop independent views.
+- **AI peer** (`aiPeer`): represents this Bull Whip instance. Each profile gets its own AI peer so agents develop independent views.
 
 ### Observation
 
@@ -97,10 +97,10 @@ Honcho sessions scope where messages and observations land. Strategy options:
 |----------|----------|
 | `per-directory` (default) | One session per working directory |
 | `per-repo` | One session per git repository root |
-| `per-session` | New Honcho session each Hermes run |
+| `per-session` | New Honcho session each Bull Whip run |
 | `global` | Single session across all directories |
 
-Manual override: `hermes honcho map my-project-name`
+Manual override: `bullwhip honcho map my-project-name`
 
 ### Recall Modes
 
@@ -114,7 +114,7 @@ How the agent accesses Honcho memory:
 
 ## Multi-Profile Setup
 
-Each Hermes profile gets its own Honcho AI peer while sharing the same workspace (user context). This means:
+Each Bull Whip profile gets its own Honcho AI peer while sharing the same workspace (user context). This means:
 
 - All profiles see the same user representation
 - Each profile builds its own AI identity and observations
@@ -123,12 +123,12 @@ Each Hermes profile gets its own Honcho AI peer while sharing the same workspace
 ### Create a profile with Honcho peer
 
 ```bash
-hermes profile create coder --clone
-# creates host block hermes.coder, AI peer "coder", inherits config from default
+bullwhip profile create coder --clone
+# creates host block bullwhip.coder, AI peer "coder", inherits config from default
 ```
 
 What `--clone` does for Honcho:
-1. Creates a `hermes.coder` host block in `honcho.json`
+1. Creates a `bullwhip.coder` host block in `honcho.json`
 2. Sets `aiPeer: "coder"` (the profile name)
 3. Inherits `workspace`, `peerName`, `writeFrequency`, `recallMode`, etc. from default
 4. Eagerly creates the peer in Honcho so it exists before first message
@@ -136,7 +136,7 @@ What `--clone` does for Honcho:
 ### Backfill existing profiles
 
 ```bash
-hermes honcho sync    # creates host blocks for all profiles that don't have one yet
+bullwhip honcho sync    # creates host blocks for all profiles that don't have one yet
 ```
 
 ### Per-profile config
@@ -146,7 +146,7 @@ Override any setting in the host block:
 ```json
 {
   "hosts": {
-    "hermes.coder": {
+    "bullwhip.coder": {
       "aiPeer": "coder",
       "recallMode": "tools",
       "observation": {
@@ -176,7 +176,7 @@ Write a persistent fact about the user. Conclusions build the user's profile ove
 
 ## Config Reference
 
-Config file: `$HERMES_HOME/honcho.json` (profile-local) or `~/.honcho/config.json` (global).
+Config file: `$BULLWHIP_HOME/honcho.json` (profile-local) or `~/.honcho/config.json` (global).
 
 ### Key settings
 
@@ -207,13 +207,13 @@ Config file: `$HERMES_HOME/honcho.json` (profile-local) or `~/.honcho/config.jso
 ## Troubleshooting
 
 ### "Honcho not configured"
-Run `hermes honcho setup`. Ensure `memory.provider: honcho` is in `~/.hermes/config.yaml`.
+Run `bullwhip honcho setup`. Ensure `memory.provider: honcho` is in `~/.bullwhip/config.yaml`.
 
 ### Memory not persisting across sessions
-Check `hermes honcho status` -- verify `saveMessages: true` and `writeFrequency` isn't `session` (which only writes on exit).
+Check `bullwhip honcho status` -- verify `saveMessages: true` and `writeFrequency` isn't `session` (which only writes on exit).
 
 ### Profile not getting its own peer
-Use `--clone` when creating: `hermes profile create <name> --clone`. For existing profiles: `hermes honcho sync`.
+Use `--clone` when creating: `bullwhip profile create <name> --clone`. For existing profiles: `bullwhip honcho sync`.
 
 ### Observation changes in dashboard not reflected
 Observation config is synced from the server on each session init. Start a new session after changing settings in the Honcho UI.
@@ -225,19 +225,19 @@ Messages over `messageMaxChars` (default 25k) are automatically chunked with `[c
 
 | Command | Description |
 |---------|-------------|
-| `hermes honcho setup` | Interactive setup wizard (cloud/local, identity, observation, recall, sessions) |
-| `hermes honcho status` | Show resolved config, connection test, peer info for active profile |
-| `hermes honcho enable` | Enable Honcho for the active profile (creates host block if needed) |
-| `hermes honcho disable` | Disable Honcho for the active profile |
-| `hermes honcho peer` | Show or update peer names (`--user <name>`, `--ai <name>`, `--reasoning <level>`) |
-| `hermes honcho peers` | Show peer identities across all profiles |
-| `hermes honcho mode` | Show or set recall mode (`hybrid`, `context`, `tools`) |
-| `hermes honcho tokens` | Show or set token budgets (`--context <N>`, `--dialectic <N>`) |
-| `hermes honcho sessions` | List known directory-to-session-name mappings |
-| `hermes honcho map <name>` | Map current working directory to a Honcho session name |
-| `hermes honcho identity` | Seed AI peer identity or show both peer representations |
-| `hermes honcho sync` | Create host blocks for all Hermes profiles that don't have one yet |
-| `hermes honcho migrate` | Step-by-step migration guide from OpenClaw native memory to Hermes + Honcho |
-| `hermes memory setup` | Generic memory provider picker (selecting "honcho" runs the same wizard) |
-| `hermes memory status` | Show active memory provider and config |
-| `hermes memory off` | Disable external memory provider |
+| `bullwhip honcho setup` | Interactive setup wizard (cloud/local, identity, observation, recall, sessions) |
+| `bullwhip honcho status` | Show resolved config, connection test, peer info for active profile |
+| `bullwhip honcho enable` | Enable Honcho for the active profile (creates host block if needed) |
+| `bullwhip honcho disable` | Disable Honcho for the active profile |
+| `bullwhip honcho peer` | Show or update peer names (`--user <name>`, `--ai <name>`, `--reasoning <level>`) |
+| `bullwhip honcho peers` | Show peer identities across all profiles |
+| `bullwhip honcho mode` | Show or set recall mode (`hybrid`, `context`, `tools`) |
+| `bullwhip honcho tokens` | Show or set token budgets (`--context <N>`, `--dialectic <N>`) |
+| `bullwhip honcho sessions` | List known directory-to-session-name mappings |
+| `bullwhip honcho map <name>` | Map current working directory to a Honcho session name |
+| `bullwhip honcho identity` | Seed AI peer identity or show both peer representations |
+| `bullwhip honcho sync` | Create host blocks for all Bull Whip profiles that don't have one yet |
+| `bullwhip honcho migrate` | Step-by-step migration guide from OpenClaw native memory to Bull Whip + Honcho |
+| `bullwhip memory setup` | Generic memory provider picker (selecting "honcho" runs the same wizard) |
+| `bullwhip memory status` | Show active memory provider and config |
+| `bullwhip memory off` | Disable external memory provider |

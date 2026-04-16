@@ -78,6 +78,6 @@ let
         pythonPackageOverrides
       ]);
 in
-pythonSet.mkVirtualEnv "hermes-agent-env" {
-  hermes-agent = [ "all" ];
+pythonSet.mkVirtualEnv "bullwhip-agent-env" {
+  bullwhip-agent = [ "all" ];
 }

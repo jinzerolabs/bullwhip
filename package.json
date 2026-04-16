@@ -1,5 +1,5 @@
 {
-  "name": "hermes-agent",
+  "name": "bullwhip-agent",
   "version": "1.0.0",
   "description": "An AI agent with advanced tool-calling capabilities, featuring a flexible toolsets system for organizing and managing tools.",
   "private": true,
@@ -8,13 +8,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NousResearch/Hermes-Agent.git"
+    "url": "git+https://github.com/ZeroLabsKorea/bullwhip-agent.git"
   },
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "bugs": {
-    "url": "https://github.com/NousResearch/Hermes-Agent/issues"
+    "url": "https://github.com/ZeroLabsKorea/bullwhip-agent/issues"
   },
-  "homepage": "https://github.com/NousResearch/Hermes-Agent#readme",
+  "homepage": "https://github.com/ZeroLabsKorea/bullwhip-agent#readme",
   "dependencies": {
     "agent-browser": "^0.13.0",
     "@askjo/camofox-browser": "^1.5.2"

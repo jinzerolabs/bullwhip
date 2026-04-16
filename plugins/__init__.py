@@ -1,1 +1,1 @@
-# Hermes plugins package
+# Bull Whip plugins package

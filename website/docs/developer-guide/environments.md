@@ -1,12 +1,12 @@
 ---
 sidebar_position: 5
 title: "Environments, Benchmarks & Data Generation"
-description: "Building RL training environments, running evaluation benchmarks, and generating SFT data with the Hermes-Agent Atropos integration"
+description: "Building RL training environments, running evaluation benchmarks, and generating SFT data with the Bull Whip-Agent Atropos integration"
 ---
 
 # Environments, Benchmarks & Data Generation
 
-Hermes Agent includes a full environment framework that connects its tool-calling capabilities to the [Atropos](https://github.com/NousResearch/atropos) RL training framework. This enables three workflows:
+Bull Whip Agent includes a full environment framework that connects its tool-calling capabilities to the [Atropos](https://github.com/ZeroLabsKorea/atropos) RL training framework. This enables three workflows:
 
 1. **RL Training** — Train language models on multi-turn agentic tasks with GRPO
 2. **Benchmarks** — Evaluate models on standardised agentic benchmarks
@@ -15,7 +15,7 @@ Hermes Agent includes a full environment framework that connects its tool-callin
 All three share the same core: an **environment** class that defines tasks, runs an agent loop, and scores the output.
 
 :::info Repo environments vs RL training tools
-The Python environment framework documented here lives under the repo's `environments/` directory and is the implementation-level API for Hermes/Atropos integration. This is separate from the user-facing `rl_*` tools, which operate as an orchestration surface for remote RL training workflows.
+The Python environment framework documented here lives under the repo's `environments/` directory and is the implementation-level API for Bull Whip/Atropos integration. This is separate from the user-facing `rl_*` tools, which operate as an orchestration surface for remote RL training workflows.
 :::
 
 :::tip Quick Links
@@ -81,11 +81,11 @@ The foundation from `atroposlib`. Provides:
 - **CLI interface** — three subcommands: `serve`, `process`, `evaluate`
 - **Eval logging** — `evaluate_log()` saves results to JSON + JSONL
 
-### HermesAgentBaseEnv
+### Bull WhipAgentBaseEnv
 
-The hermes-agent layer (`environments/hermes_base_env.py`). Adds:
+The bullwhip-agent layer (`environments/bullwhip_base_env.py`). Adds:
 - **Terminal backend configuration** — sets `TERMINAL_ENV` for sandboxed execution (local, Docker, Modal, Daytona, SSH, Singularity)
-- **Tool resolution** — `_resolve_tools_for_group()` calls hermes-agent's `get_tool_definitions()` to get the right tool schemas based on enabled/disabled toolsets
+- **Tool resolution** — `_resolve_tools_for_group()` calls bullwhip-agent's `get_tool_definitions()` to get the right tool schemas based on enabled/disabled toolsets
 - **Agent loop integration** — `collect_trajectory()` runs `HermesAgentLoop` and scores the result
 - **Two-phase operation** — Phase 1 (OpenAI server) for eval/SFT, Phase 2 (VLLM ManagedServer) for full RL with logprobs
 - **Async safety patches** — monkey-patches Modal backend to work inside Atropos's event loop
@@ -106,7 +106,7 @@ Your environment inherits from `HermesAgentBaseEnv` and implements five methods:
 
 ### Agent Loop
 
-`HermesAgentLoop` (`environments/agent_loop.py`) is the reusable multi-turn agent engine. It runs the same tool-calling pattern as hermes-agent's main loop:
+`HermesAgentLoop` (`environments/agent_loop.py`) is the reusable multi-turn agent engine. It runs the same tool-calling pattern as bullwhip-agent's main loop:
 
 1. Send messages + tool schemas to the API via `server.chat_completion()`
 2. If the response contains `tool_calls`, dispatch each via `handle_function_call()`
@@ -158,7 +158,7 @@ Available methods:
 | **Transfers** | `upload_file()`, `upload_dir()`, `download_file()`, `download_dir()` |
 | **Web** | `web_search(query)`, `web_extract(urls)` |
 | **Browser** | `browser_navigate(url)`, `browser_snapshot()` |
-| **Generic** | `call_tool(name, args)` — escape hatch for any hermes-agent tool |
+| **Generic** | `call_tool(name, args)` — escape hatch for any bullwhip-agent tool |
 | **Cleanup** | `cleanup()` — release all resources |
 
 ### Tool Call Parsers
@@ -168,11 +168,11 @@ For **Phase 2** (VLLM ManagedServer), the server returns raw text without struct
 ```python
 from environments.tool_call_parsers import get_parser
 
-parser = get_parser("hermes")  # or "mistral", "llama3_json", "qwen", "deepseek_v3", etc.
+parser = get_parser("bullwhip")  # or "mistral", "llama3_json", "qwen", "deepseek_v3", etc.
 content, tool_calls = parser.parse(raw_model_output)
 ```
 
-Available parsers: `hermes`, `mistral`, `llama3_json`, `qwen`, `qwen3_coder`, `deepseek_v3`, `deepseek_v3_1`, `kimi_k2`, `longcat`, `glm45`, `glm47`.
+Available parsers: `bullwhip`, `mistral`, `llama3_json`, `qwen`, `qwen3_coder`, `deepseek_v3`, `deepseek_v3_1`, `kimi_k2`, `longcat`, `glm45`, `glm47`.
 
 In Phase 1 (OpenAI server type), parsers are not needed — the server handles tool call parsing natively.
 
@@ -202,7 +202,7 @@ python environments/benchmarks/terminalbench_2/terminalbench2_env.py evaluate \
     --env.task_filter fix-git,git-multibranch
 ```
 
-Dataset: [NousResearch/terminal-bench-2](https://huggingface.co/datasets/NousResearch/terminal-bench-2) on HuggingFace.
+Dataset: [ZeroLabsKorea/terminal-bench-2](https://huggingface.co/datasets/ZeroLabsKorea/terminal-bench-2) on HuggingFace.
 
 ### TBLite (OpenThoughts Terminal Bench Lite)
 
@@ -223,7 +223,7 @@ python environments/benchmarks/tblite/tblite_env.py evaluate \
     --config environments/benchmarks/tblite/default.yaml
 ```
 
-TBLite is a thin subclass of TerminalBench2 — only the dataset and timeouts differ. Created by the OpenThoughts Agent team (Snorkel AI + Bespoke Labs). Dataset: [NousResearch/openthoughts-tblite](https://huggingface.co/datasets/NousResearch/openthoughts-tblite).
+TBLite is a thin subclass of TerminalBench2 — only the dataset and timeouts differ. Created by the OpenThoughts Agent team (Snorkel AI + Bespoke Labs). Dataset: [ZeroLabsKorea/openthoughts-tblite](https://huggingface.co/datasets/ZeroLabsKorea/openthoughts-tblite).
 
 ### YC-Bench
 
@@ -241,7 +241,7 @@ TBLite is a thin subclass of TerminalBench2 — only the dataset and timeouts di
 
 ```bash
 # Install yc-bench (optional dependency)
-pip install "hermes-agent[yc-bench]"
+pip install "bullwhip-agent[yc-bench]"
 
 # Run evaluation
 bash environments/benchmarks/yc_bench/run_eval.sh
@@ -273,12 +273,12 @@ python environments/terminal_test_env/terminal_test_env.py process \
 python environments/terminal_test_env/terminal_test_env.py serve
 ```
 
-### HermesSweEnv
+### Bull WhipSweEnv
 
 SWE-bench style training environment. The model gets a coding task, uses terminal + file + web tools to solve it, and the reward function runs tests in the same Modal sandbox.
 
 ```bash
-python environments/hermes_swe_env/hermes_swe_env.py serve \
+python environments/bullwhip_swe_env/bullwhip_swe_env.py serve \
     --openai.model_name YourModel \
     --env.dataset_name bigcode/humanevalpack \
     --env.terminal_backend modal
@@ -321,7 +321,7 @@ Connects the environment to a running Atropos API server (`run-api`). Used durin
 run-api
 
 # Terminal 2: Start the environment
-python environments/hermes_swe_env/hermes_swe_env.py serve \
+python environments/bullwhip_swe_env/bullwhip_swe_env.py serve \
     --openai.model_name YourModel
 ```
 
@@ -342,14 +342,14 @@ Uses ManagedServer for exact token IDs + logprobs via `/generate`. A client-side
 
 - **Use for**: full RL training with GRPO/PPO
 - **Real tokens**, masks, and logprobs flow through the pipeline
-- Set `tool_call_parser` in config to match your model's format (e.g., `"hermes"`, `"qwen"`, `"mistral"`)
+- Set `tool_call_parser` in config to match your model's format (e.g., `"bullwhip"`, `"qwen"`, `"mistral"`)
 
 ## Creating Environments
 
 ### Training Environment
 
 ```python
-from environments.hermes_base_env import HermesAgentBaseEnv, HermesAgentEnvConfig
+from environments.bullwhip_base_env import HermesAgentBaseEnv, HermesAgentEnvConfig
 from atroposlib.envs.server_handling.server_manager import APIServerConfig
 
 class MyEnvConfig(HermesAgentEnvConfig):
@@ -416,11 +416,11 @@ See `environments/benchmarks/yc_bench/yc_bench_env.py` for a clean, well-documen
 
 ## Configuration Reference
 
-### HermesAgentEnvConfig Fields
+### Bull WhipAgentEnvConfig Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `enabled_toolsets` | `List[str]` | `None` (all) | Which hermes toolsets to enable |
+| `enabled_toolsets` | `List[str]` | `None` (all) | Which bullwhip toolsets to enable |
 | `disabled_toolsets` | `List[str]` | `None` | Toolsets to filter out |
 | `distribution` | `str` | `None` | Probabilistic toolset distribution name |
 | `max_agent_turns` | `int` | `30` | Max LLM calls per rollout |
@@ -431,7 +431,7 @@ See `environments/benchmarks/yc_bench/yc_bench_env.py` for a clean, well-documen
 | `terminal_lifetime` | `int` | `3600` | Max sandbox lifetime |
 | `dataset_name` | `str` | `None` | HuggingFace dataset identifier |
 | `tool_pool_size` | `int` | `128` | Thread pool size for tool execution |
-| `tool_call_parser` | `str` | `"hermes"` | Parser for Phase 2 raw output |
+| `tool_call_parser` | `str` | `"bullwhip"` | Parser for Phase 2 raw output |
 | `extra_body` | `Dict` | `None` | Extra params for OpenAI API (e.g., OpenRouter provider prefs) |
 | `eval_handling` | `Enum` | `STOP_TRAIN` | `STOP_TRAIN`, `LIMIT_TRAIN`, `NONE` |
 
@@ -447,8 +447,8 @@ env:
   agent_temperature: 0.8
   terminal_backend: "modal"
   terminal_timeout: 300
-  dataset_name: "NousResearch/terminal-bench-2"
-  tokenizer_name: "NousResearch/Hermes-3-Llama-3.1-8B"
+  dataset_name: "ZeroLabsKorea/terminal-bench-2"
+  tokenizer_name: "ZeroLabsKorea/Bull Whip-3-Llama-3.1-8B"
   use_wandb: true
   wandb_name: "my-benchmark"
 
@@ -472,17 +472,17 @@ python my_env.py evaluate \
 ### For all environments
 
 - Python >= 3.11
-- `atroposlib`: `pip install git+https://github.com/NousResearch/atropos.git`
+- `atroposlib`: `pip install git+https://github.com/ZeroLabsKorea/atropos.git`
 - An LLM API key (OpenRouter, OpenAI, or self-hosted VLLM/SGLang)
 
 ### For Modal-sandboxed benchmarks (TB2, TBLite)
 
-- [Modal](https://modal.com) account and CLI: `pip install "hermes-agent[modal]"`
+- [Modal](https://modal.com) account and CLI: `pip install "bullwhip-agent[modal]"`
 - `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` environment variables
 
 ### For YC-Bench
 
-- `pip install "hermes-agent[yc-bench]"` (installs the yc-bench CLI + SQLAlchemy)
+- `pip install "bullwhip-agent[yc-bench]"` (installs the yc-bench CLI + SQLAlchemy)
 - No Modal needed — runs with local terminal backend
 
 ### For RL training
@@ -497,13 +497,13 @@ See [RL Training](/user-guide/features/rl-training) for the agent-driven RL work
 
 ```
 environments/
-├── hermes_base_env.py          # Abstract base class (HermesAgentBaseEnv)
+├── bullwhip_base_env.py          # Abstract base class (HermesAgentBaseEnv)
 ├── agent_loop.py               # Multi-turn agent engine (HermesAgentLoop)
 ├── tool_context.py             # Per-rollout tool access for reward functions
 ├── patches.py                  # Async-safety patches for Modal backend
 │
 ├── tool_call_parsers/          # Phase 2 client-side parsers
-│   ├── hermes_parser.py        # Hermes/ChatML <tool_call> format
+│   ├── bullwhip_parser.py        # Bull Whip/ChatML <tool_call> format
 │   ├── mistral_parser.py       # Mistral [TOOL_CALLS] format
 │   ├── llama_parser.py         # Llama 3 JSON tool calling
 │   ├── qwen_parser.py          # Qwen format
@@ -511,7 +511,7 @@ environments/
 │   └── ...                     # + kimi_k2, longcat, glm45/47, etc.
 │
 ├── terminal_test_env/          # Stack validation (inline tasks)
-├── hermes_swe_env/             # SWE-bench training environment
+├── bullwhip_swe_env/             # SWE-bench training environment
 │
 └── benchmarks/                 # Evaluation benchmarks
     ├── terminalbench_2/        # 89 terminal tasks, Modal sandboxes

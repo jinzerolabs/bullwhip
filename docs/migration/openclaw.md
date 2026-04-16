@@ -1,20 +1,20 @@
-# Migrating from OpenClaw to Hermes Agent
+# Migrating from OpenClaw to Bull Whip Agent
 
-This guide covers how to import your OpenClaw settings, memories, skills, and API keys into Hermes Agent.
+This guide covers how to import your OpenClaw settings, memories, skills, and API keys into Bull Whip Agent.
 
 ## Three Ways to Migrate
 
 ### 1. Automatic (during first-time setup)
 
-When you run `hermes setup` for the first time and Hermes detects `~/.openclaw`, it automatically offers to import your OpenClaw data before configuration begins. Just accept the prompt and everything is handled for you.
+When you run `bullwhip setup` for the first time and Bull Whip detects `~/.openclaw`, it automatically offers to import your OpenClaw data before configuration begins. Just accept the prompt and everything is handled for you.
 
 ### 2. CLI Command (quick, scriptable)
 
 ```bash
-hermes claw migrate                      # Preview then migrate (always shows preview first)
-hermes claw migrate --dry-run            # Preview only, no changes
-hermes claw migrate --preset user-data   # Migrate without API keys/secrets
-hermes claw migrate --yes                # Skip confirmation prompt
+bullwhip claw migrate                      # Preview then migrate (always shows preview first)
+bullwhip claw migrate --dry-run            # Preview only, no changes
+bullwhip claw migrate --preset user-data   # Migrate without API keys/secrets
+bullwhip claw migrate --yes                # Skip confirmation prompt
 ```
 
 The migration always shows a full preview of what will be imported before making any changes. You review the preview and confirm before anything is written.
@@ -37,7 +37,7 @@ The migration always shows a full preview of what will be imported before making
 Ask the agent to run the migration for you:
 
 ```
-> Migrate my OpenClaw setup to Hermes
+> Migrate my OpenClaw setup to Bull Whip
 ```
 
 The agent will use the `openclaw-migration` skill to:
@@ -52,24 +52,24 @@ The agent will use the `openclaw-migration` skill to:
 ### `user-data` preset
 | Item | Source | Destination |
 |------|--------|-------------|
-| SOUL.md | `~/.openclaw/workspace/SOUL.md` | `~/.hermes/SOUL.md` |
-| Memory entries | `~/.openclaw/workspace/MEMORY.md` | `~/.hermes/memories/MEMORY.md` |
-| User profile | `~/.openclaw/workspace/USER.md` | `~/.hermes/memories/USER.md` |
-| Skills | `~/.openclaw/workspace/skills/` | `~/.hermes/skills/openclaw-imports/` |
-| Command allowlist | `~/.openclaw/workspace/exec_approval_patterns.yaml` | Merged into `~/.hermes/config.yaml` |
-| Messaging settings | `~/.openclaw/config.yaml` (TELEGRAM_ALLOWED_USERS, MESSAGING_CWD) | `~/.hermes/.env` |
-| TTS assets | `~/.openclaw/workspace/tts/` | `~/.hermes/tts/` |
+| SOUL.md | `~/.openclaw/workspace/SOUL.md` | `~/.bullwhip/SOUL.md` |
+| Memory entries | `~/.openclaw/workspace/MEMORY.md` | `~/.bullwhip/memories/MEMORY.md` |
+| User profile | `~/.openclaw/workspace/USER.md` | `~/.bullwhip/memories/USER.md` |
+| Skills | `~/.openclaw/workspace/skills/` | `~/.bullwhip/skills/openclaw-imports/` |
+| Command allowlist | `~/.openclaw/workspace/exec_approval_patterns.yaml` | Merged into `~/.bullwhip/config.yaml` |
+| Messaging settings | `~/.openclaw/config.yaml` (TELEGRAM_ALLOWED_USERS, MESSAGING_CWD) | `~/.bullwhip/.env` |
+| TTS assets | `~/.openclaw/workspace/tts/` | `~/.bullwhip/tts/` |
 
 Workspace files are also checked at `workspace.default/` and `workspace-main/` as fallback paths (OpenClaw renamed `workspace/` to `workspace-main/` in recent versions).
 
 ### `full` preset (adds to `user-data`)
 | Item | Source | Destination |
 |------|--------|-------------|
-| Telegram bot token | `openclaw.json` channels config | `~/.hermes/.env` |
-| OpenRouter API key | `.env`, `openclaw.json`, or `openclaw.json["env"]` | `~/.hermes/.env` |
-| OpenAI API key | `.env`, `openclaw.json`, or `openclaw.json["env"]` | `~/.hermes/.env` |
-| Anthropic API key | `.env`, `openclaw.json`, or `openclaw.json["env"]` | `~/.hermes/.env` |
-| ElevenLabs API key | `.env`, `openclaw.json`, or `openclaw.json["env"]` | `~/.hermes/.env` |
+| Telegram bot token | `openclaw.json` channels config | `~/.bullwhip/.env` |
+| OpenRouter API key | `.env`, `openclaw.json`, or `openclaw.json["env"]` | `~/.bullwhip/.env` |
+| OpenAI API key | `.env`, `openclaw.json`, or `openclaw.json["env"]` | `~/.bullwhip/.env` |
+| Anthropic API key | `.env`, `openclaw.json`, or `openclaw.json["env"]` | `~/.bullwhip/.env` |
+| ElevenLabs API key | `.env`, `openclaw.json`, or `openclaw.json["env"]` | `~/.bullwhip/.env` |
 
 API keys are searched across four sources: inline config values, `~/.openclaw/.env`, the `openclaw.json` `"env"` sub-object, and per-agent auth profiles.
 
@@ -80,7 +80,7 @@ Only allowlisted secrets are ever imported. Other credentials are skipped and re
 The migration handles both old and current OpenClaw config layouts:
 
 - **Channel tokens**: Reads from flat paths (`channels.telegram.botToken`) and the newer `accounts.default` layout (`channels.telegram.accounts.default.botToken`)
-- **TTS provider**: OpenClaw renamed "edge" to "microsoft" — both are recognized and mapped to Hermes' "edge"
+- **TTS provider**: OpenClaw renamed "edge" to "microsoft" — both are recognized and mapped to Bull Whip' "edge"
 - **Provider API types**: Both short (`openai`, `anthropic`) and hyphenated (`openai-completions`, `anthropic-messages`, `google-generative-ai`) values are mapped correctly
 - **thinkingDefault**: All enum values are handled including newer ones (`minimal`, `xhigh`, `adaptive`)
 - **Matrix**: Uses `accessToken` field (not `botToken`)
@@ -88,12 +88,12 @@ The migration handles both old and current OpenClaw config layouts:
 
 ## Conflict Handling
 
-By default, the migration **will not overwrite** existing Hermes data:
+By default, the migration **will not overwrite** existing Bull Whip data:
 
-- **SOUL.md** — skipped if one already exists in `~/.hermes/`
+- **SOUL.md** — skipped if one already exists in `~/.bullwhip/`
 - **Memory entries** — skipped if memories already exist (to avoid duplicates)
 - **Skills** — skipped if a skill with the same name already exists
-- **API keys** — skipped if the key is already set in `~/.hermes/.env`
+- **API keys** — skipped if the key is already set in `~/.bullwhip/.env`
 
 To overwrite conflicts, use `--overwrite`. The migration creates backups before overwriting.
 
@@ -107,30 +107,30 @@ Every migration produces a report showing:
 - **Skipped items** — items not found in the source
 - **Errors** — items that failed to import
 
-For executed migrations, the full report is saved to `~/.hermes/migration/openclaw/<timestamp>/`.
+For executed migrations, the full report is saved to `~/.bullwhip/migration/openclaw/<timestamp>/`.
 
 ## Post-Migration Notes
 
 - **Skills require a new session** — imported skills take effect after restarting your agent or starting a new chat.
-- **WhatsApp requires re-pairing** — WhatsApp uses QR-code pairing, not token-based auth. Run `hermes whatsapp` to pair.
-- **Archive cleanup** — after migration, you'll be offered to rename `~/.openclaw/` to `.openclaw.pre-migration/` to prevent state confusion. You can also run `hermes claw cleanup` later.
+- **WhatsApp requires re-pairing** — WhatsApp uses QR-code pairing, not token-based auth. Run `bullwhip whatsapp` to pair.
+- **Archive cleanup** — after migration, you'll be offered to rename `~/.openclaw/` to `.openclaw.pre-migration/` to prevent state confusion. You can also run `bullwhip claw cleanup` later.
 
 ## Troubleshooting
 
 ### "OpenClaw directory not found"
 The migration looks for `~/.openclaw` by default, then tries `~/.clawdbot` and `~/.moltbot`. If your OpenClaw is installed elsewhere, use `--source`:
 ```bash
-hermes claw migrate --source /path/to/.openclaw
+bullwhip claw migrate --source /path/to/.openclaw
 ```
 
 ### "Migration script not found"
-The migration script ships with Hermes Agent. If you installed via pip (not git clone), the `optional-skills/` directory may not be present. Install the skill from the Skills Hub:
+The migration script ships with Bull Whip Agent. If you installed via pip (not git clone), the `optional-skills/` directory may not be present. Install the skill from the Skills Hub:
 ```bash
-hermes skills install openclaw-migration
+bullwhip skills install openclaw-migration
 ```
 
 ### Memory overflow
-If your OpenClaw MEMORY.md or USER.md exceeds Hermes' character limits, excess entries are exported to an overflow file in the migration report directory. You can manually review and add the most important ones.
+If your OpenClaw MEMORY.md or USER.md exceeds Bull Whip' character limits, excess entries are exported to an overflow file in the migration report directory. You can manually review and add the most important ones.
 
 ### API keys not found
 Keys might be stored in different places depending on your OpenClaw setup:
@@ -139,4 +139,4 @@ Keys might be stored in different places depending on your OpenClaw setup:
 - In `openclaw.json` under the `"env"` or `"env.vars"` sub-objects
 - In `~/.openclaw/agents/main/agent/auth-profiles.json`
 
-The migration checks all four. If keys use `source: "file"` or `source: "exec"` SecretRefs, they can't be resolved automatically — add them via `hermes config set`.
+The migration checks all four. If keys use `source: "file"` or `source: "exec"` SecretRefs, they can't be resolved automatically — add them via `bullwhip config set`.

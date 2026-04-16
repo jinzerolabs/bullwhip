@@ -1,15 +1,15 @@
 # Optional Skills
 
-Official skills maintained by Nous Research that are **not activated by default**.
+Official skills maintained by ZeroLabs Korea that are **not activated by default**.
 
-These skills ship with the hermes-agent repository but are not copied to
-`~/.hermes/skills/` during setup. They are discoverable via the Skills Hub:
+These skills ship with the bullwhip-agent repository but are not copied to
+`~/.bullwhip/skills/` during setup. They are discoverable via the Skills Hub:
 
 ```bash
-hermes skills browse               # browse all skills, official shown first
-hermes skills browse --source official  # browse only official optional skills
-hermes skills search <query>       # finds optional skills labeled "official"
-hermes skills install <identifier> # copies to ~/.hermes/skills/ and activates
+bullwhip skills browse               # browse all skills, official shown first
+bullwhip skills browse --source official  # browse only official optional skills
+bullwhip skills search <query>       # finds optional skills labeled "official"
+bullwhip skills install <identifier> # copies to ~/.bullwhip/skills/ and activates
 ```
 
 ## Why optional?

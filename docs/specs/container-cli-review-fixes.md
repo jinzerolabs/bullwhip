@@ -1,6 +1,6 @@
 # Container-Aware CLI Review Fixes Spec
 
-**PR:** NousResearch/hermes-agent#7543
+**PR:** ZeroLabsKorea/bullwhip-agent#7543
 **Review:** cursor[bot] bugbot review (4094049442) + two prior rounds
 **Date:** 2026-04-12
 **Branch:** `feat/container-aware-cli-clean`
@@ -26,7 +26,7 @@ The mechanical fixes are in place but the overall design needs revision. The ret
 
 ### Design Principles
 
-1. **Let it crash.** No silent fallbacks. If `.container-mode` exists but something goes wrong, the error propagates naturally (Python traceback). The only case where container routing is skipped is when `.container-mode` doesn't exist or `HERMES_DEV=1`.
+1. **Let it crash.** No silent fallbacks. If `.container-mode` exists but something goes wrong, the error propagates naturally (Python traceback). The only case where container routing is skipped is when `.container-mode` doesn't exist or `BULLWHIP_DEV=1`.
 2. **No retries.** Probe once for sudo, exec once. If it fails, docker/podman's stderr reaches the user verbatim.
 3. **Completely transparent.** No error wrapping, no prefixes, no spinners. Docker's output goes straight through.
 4. **`os.execvp` on the happy path.** Replace the Python process entirely so there's no idle parent during interactive sessions. Note: `execvp` never returns on success (process is replaced) and raises `OSError` on failure (it does not return a value). The container process's exit code becomes the process exit code by definition — no explicit propagation needed.
@@ -36,7 +36,7 @@ The mechanical fixes are in place but the overall design needs revision. The ret
 
 ```
 1. get_container_exec_info()
-   - HERMES_DEV=1 → return None (skip routing)
+   - BULLWHIP_DEV=1 → return None (skip routing)
    - Inside container → return None (skip routing)
    - .container-mode doesn't exist → return None (skip routing)
    - .container-mode exists → parse and return dict
@@ -56,7 +56,7 @@ The mechanical fixes are in place but the overall design needs revision. The ret
       - On OSError: let it crash (natural traceback)
 ```
 
-### Changes to `hermes_cli/main.py`
+### Changes to `bullwhip_cli/main.py`
 
 #### `_exec_in_container` — rewrite
 
@@ -153,14 +153,14 @@ def _exec_in_container(container_info: dict, cli_args: list):
                     f'    commands = [{{ command = "{runtime}"; options = [ "NOPASSWD" ]; }}];\n'
                     f'  }}];\n'
                     f"\n"
-                    f"Or run: sudo hermes {' '.join(cli_args)}",
+                    f"Or run: sudo bullwhip {' '.join(cli_args)}",
                     file=sys.stderr,
                 )
                 sys.exit(1)
         else:
             print(
                 f"Error: container '{container_name}' not found via {backend}.\n"
-                f"The container may be running under root. Try: sudo hermes {' '.join(cli_args)}",
+                f"The container may be running under root. Try: sudo bullwhip {' '.join(cli_args)}",
                 file=sys.stderr,
             )
             sys.exit(1)
@@ -194,7 +194,7 @@ def _exec_in_container(container_info: dict, cli_args: list):
 Current:
 ```python
 try:
-    from hermes_cli.config import get_container_exec_info
+    from bullwhip_cli.config import get_container_exec_info
     container_info = get_container_exec_info()
     if container_info:
         _exec_in_container(container_info, sys.argv[1:])
@@ -207,7 +207,7 @@ except Exception:
 
 Revised:
 ```python
-from hermes_cli.config import get_container_exec_info
+from bullwhip_cli.config import get_container_exec_info
 container_info = get_container_exec_info()
 if container_info:
     _exec_in_container(container_info, sys.argv[1:])
@@ -221,22 +221,22 @@ No try/except. If `.container-mode` doesn't exist, `get_container_exec_info()` r
 
 Note: `sys.exit(1)` after `_exec_in_container` is dead code in all paths — `os.execvp` either replaces the process or raises. It's kept as a belt-and-suspenders assertion with a comment marking it unreachable, not as actual error handling.
 
-### Changes to `hermes_cli/config.py`
+### Changes to `bullwhip_cli/config.py`
 
 #### `get_container_exec_info` — remove inner try/except
 
 Current code catches `(OSError, IOError)` and returns `None`. This silently hides permission errors, corrupt files, etc.
 
-Change: Remove the try/except around file reading. Keep the early returns for `HERMES_DEV=1` and `_is_inside_container()`. The `FileNotFoundError` from `open()` when `.container-mode` doesn't exist should still return `None` (this is the "container mode not enabled" case). All other exceptions propagate.
+Change: Remove the try/except around file reading. Keep the early returns for `BULLWHIP_DEV=1` and `_is_inside_container()`. The `FileNotFoundError` from `open()` when `.container-mode` doesn't exist should still return `None` (this is the "container mode not enabled" case). All other exceptions propagate.
 
 ```python
 def get_container_exec_info() -> Optional[dict]:
-    if os.environ.get("HERMES_DEV") == "1":
+    if os.environ.get("BULLWHIP_DEV") == "1":
         return None
     if _is_inside_container():
         return None
 
-    container_mode_file = get_hermes_home() / ".container-mode"
+    container_mode_file = get_bullwhip_home() / ".container-mode"
 
     try:
         with open(container_mode_file, "r") as f:
@@ -262,7 +262,7 @@ Revised: 2 branches.
 if [ -d "${symlinkPath}" ] && [ ! -L "${symlinkPath}" ]; then
   # Real directory — back it up, then create symlink
   _backup="${symlinkPath}.bak.$(date +%s)"
-  echo "hermes-agent: backing up existing ${symlinkPath} to $_backup"
+  echo "bullwhip-agent: backing up existing ${symlinkPath} to $_backup"
   mv "${symlinkPath}" "$_backup"
 fi
 # For everything else (symlink, doesn't exist, etc.) — just force-create
@@ -272,7 +272,7 @@ chown -h ${user}:${cfg.group} "${symlinkPath}"
 
 `ln -sfn` handles: existing symlink (replaces), doesn't exist (creates), and after the `mv` above (creates). The only case that needs special handling is a real directory, because `ln -sfn` cannot atomically replace a directory.
 
-Note: there is a theoretical race between the `[ -d ... ]` check and the `mv` (something could create/remove the directory in between). In practice this is a NixOS activation script running as root during `nixos-rebuild switch` — no other process should be touching `~/.hermes` at that moment. Not worth adding locking for.
+Note: there is a theoretical race between the `[ -d ... ]` check and the `mv` (something could create/remove the directory in between). In practice this is a NixOS activation script running as root during `nixos-rebuild switch` — no other process should be touching `~/.bullwhip` at that moment. Not worth adding locking for.
 
 ### Sudoers — document, don't auto-configure
 
@@ -286,7 +286,7 @@ The fix in 726cf90f (`cfg.container.enable && cfg.container.hostUsers != []`) is
 
 ## Spec: Test Rewrite
 
-The existing test file (`tests/hermes_cli/test_container_aware_cli.py`) has 16 tests. With the simplified exec model, several are obsolete.
+The existing test file (`tests/bullwhip_cli/test_container_aware_cli.py`) has 16 tests. With the simplified exec model, several are obsolete.
 
 ### Tests to keep (update as needed)
 
@@ -325,5 +325,5 @@ The existing test file (`tests/hermes_cli/test_container_aware_cli.py`) has 16 t
 - Auto-configuring sudoers rules in the NixOS module
 - Any changes to `get_container_exec_info` parsing logic beyond the try/except narrowing
 - Changes to `.container-mode` file format
-- Changes to the `HERMES_DEV=1` bypass
+- Changes to the `BULLWHIP_DEV=1` bypass
 - Changes to container detection logic (`_is_inside_container`)
