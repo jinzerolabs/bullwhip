@@ -2048,13 +2048,14 @@ class AIAgent:
         return (user_targets_workspace or assistant_targets_workspace) and assistant_mentions_action
 
     def _looks_like_intent_without_action(self, response_text: str) -> bool:
-        """Use a lightweight LLM call to decide if the response merely
-        announces an intent to act (e.g. "I'll run the tests", "실행하겠습니다")
-        without actually doing anything.
+        """Use an LLM call to decide if the response merely announces an
+        intent to act (e.g. "I'll run the tests", "실행하겠습니다") without
+        actually doing anything.
 
-        Returns True when the LLM judges the response as an announcement
-        rather than a complete answer.  Falls back to False on any error
-        so the conversation is never blocked by a classification failure.
+        Uses the agent's own client and model so it works with any backend
+        (Ollama, local servers, OpenRouter, etc.) — no external API key
+        required.  Falls back to False on any error so the conversation
+        is never blocked by a classification failure.
         """
         text = self._strip_think_blocks(response_text or "").strip()
         if not text:
@@ -2064,10 +2065,9 @@ class AIAgent:
             return False
 
         try:
-            from agent.auxiliary_client import call_llm as _call_llm
-
-            resp = _call_llm(
-                task="compression",  # reuse the cheapest auxiliary provider
+            client = self._ensure_primary_openai_client(reason="intent_classifier")
+            resp = client.chat.completions.create(
+                model=self.model,
                 messages=[{
                     "role": "user",
                     "content": (
