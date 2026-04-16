@@ -7207,14 +7207,35 @@ class AIAgent:
             )
         elif function_name == "delegate_task":
             from tools.delegate_tool import delegate_task as _delegate_task
-            return _delegate_task(
-                goal=function_args.get("goal"),
-                context=function_args.get("context"),
-                toolsets=function_args.get("toolsets"),
-                tasks=function_args.get("tasks"),
-                max_iterations=function_args.get("max_iterations"),
-                parent_agent=self,
-            )
+            # Set up spinner for real-time subagent visibility
+            _tasks_arg = function_args.get("tasks")
+            if _tasks_arg and isinstance(_tasks_arg, list):
+                _spin_label = f"🔀 delegating {len(_tasks_arg)} tasks"
+            else:
+                _goal_preview = (function_args.get("goal") or "")[:30]
+                _spin_label = f"🔀 {_goal_preview}" if _goal_preview else "🔀 delegating"
+            _spin = None
+            if self._should_start_quiet_spinner():
+                _spin = KawaiiSpinner(
+                    f"{random.choice(KawaiiSpinner.KAWAII_WAITING)} {_spin_label}",
+                    spinner_type='dots', print_fn=self._print_fn,
+                )
+                _spin.start()
+            self._delegate_spinner = _spin
+            try:
+                _result = _delegate_task(
+                    goal=function_args.get("goal"),
+                    context=function_args.get("context"),
+                    toolsets=function_args.get("toolsets"),
+                    tasks=_tasks_arg,
+                    max_iterations=function_args.get("max_iterations"),
+                    parent_agent=self,
+                )
+            finally:
+                self._delegate_spinner = None
+                if _spin:
+                    _spin.stop("done")
+            return _result
         else:
             return handle_function_call(
                 function_name, function_args, effective_task_id,
@@ -7632,7 +7653,11 @@ class AIAgent:
                     goal_preview = (function_args.get("goal") or "")[:30]
                     spinner_label = f"🔀 {goal_preview}" if goal_preview else "🔀 delegating"
                 spinner = None
-                if self._should_emit_quiet_tool_messages() and self._should_start_quiet_spinner():
+                # Always create a spinner for delegate_task — subagent
+                # progress (tool calls, results, assistant text) is
+                # rendered via spinner.print_above().  Without it, users
+                # only see the one-line "🔀 delegating" with no detail.
+                if self._should_start_quiet_spinner():
                     face = random.choice(KawaiiSpinner.KAWAII_WAITING)
                     spinner = KawaiiSpinner(f"{face} {spinner_label}", spinner_type='dots', print_fn=self._print_fn)
                     spinner.start()
