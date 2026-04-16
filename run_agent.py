@@ -4572,7 +4572,9 @@ class AIAgent:
                 if not event_type and isinstance(event, dict):
                     event_type = event.get("type")
 
-                # Collect output items and text deltas for backfill
+                # Collect output items, text deltas, and function call
+                # events for backfill.  Without function_call collection,
+                # tool calls are lost when the stream terminates early.
                 if event_type == "response.output_item.done":
                     done_item = getattr(event, "item", None)
                     if done_item is None and isinstance(event, dict):
@@ -4585,6 +4587,17 @@ class AIAgent:
                         delta = event.get("delta", "")
                     if delta:
                         collected_text_deltas.append(delta)
+                elif "function_call" in (event_type or ""):
+                    # Function call events (arguments delta, done, etc.)
+                    # are already captured by response.output_item.done
+                    # above, but if the stream dies mid-call we won't get
+                    # the done event.  Collect the partial item so the
+                    # backfill path can still recover it.
+                    _fc_item = getattr(event, "item", None)
+                    if _fc_item is None and isinstance(event, dict):
+                        _fc_item = event.get("item")
+                    if _fc_item is not None and _fc_item not in collected_output_items:
+                        collected_output_items.append(_fc_item)
 
                 if event_type not in {"response.completed", "response.incomplete", "response.failed"}:
                     continue
@@ -6370,6 +6383,16 @@ class AIAgent:
             }
         if self.tools:
             api_kwargs["tools"] = self.tools
+        elif self.valid_tool_names:
+            # Tools were registered (valid_tool_names is populated) but the
+            # definitions list is empty — the model won't be able to make
+            # structured tool calls.  This can happen when tool loading fails
+            # silently or toolsets are filtered out after init.
+            logging.warning(
+                "%sTool definitions list is empty but %d tool name(s) are registered. "
+                "The model will not be able to make structured tool calls.",
+                self.log_prefix, len(self.valid_tool_names),
+            )
 
         if self.max_tokens is not None:
             api_kwargs.update(self._max_tokens_param(self.max_tokens))
@@ -9819,6 +9842,36 @@ class AIAgent:
                     else:
                         assistant_message.content = str(raw)
 
+                # ── Fallback: extract tool calls from raw text ──────────
+                # Some models (GLM, Qwen, DeepSeek, Llama, Mistral, etc.)
+                # emit tool calls as <tool_call> XML in content text instead
+                # of the structured tool_calls field.  Without this fallback
+                # the calls are silently dropped and the agent appears to
+                # "say it will act" but never actually executes anything.
+                # Mirrors the same logic in environments/agent_loop.py.
+                if (
+                    not getattr(assistant_message, "tool_calls", None)
+                    and assistant_message.content
+                    and self.valid_tool_names
+                    and "<tool_call>" in (assistant_message.content or "")
+                ):
+                    try:
+                        from environments.tool_call_parsers import get_parser
+                        _fallback_parser = get_parser("bullwhip")
+                        _parsed_content, _parsed_calls = _fallback_parser.parse(
+                            assistant_message.content
+                        )
+                        if _parsed_calls:
+                            assistant_message.tool_calls = _parsed_calls
+                            if _parsed_content is not None:
+                                assistant_message.content = _parsed_content
+                            logging.debug(
+                                "%sFallback parser extracted %d tool call(s) from raw content",
+                                self.log_prefix, len(_parsed_calls),
+                            )
+                    except Exception:
+                        pass  # Fall through — treat as no tool calls
+
                 try:
                     from bullwhip_cli.plugins import invoke_hook as _invoke_hook
                     _assistant_tool_calls = getattr(assistant_message, "tool_calls", None) or []
@@ -10180,6 +10233,16 @@ class AIAgent:
                             pass
 
                     self._execute_tool_calls(assistant_message, messages, effective_task_id, api_call_count)
+
+                    # Grant one grace iteration so the model can see the
+                    # tool results even when the budget is about to expire.
+                    # Without this, the loop breaks at the top of the next
+                    # iteration (consume() returns False) and the model
+                    # never sees what the tools returned — it appears to
+                    # "do something" but the user gets a summary instead
+                    # of the actual answer.
+                    if self.iteration_budget.remaining <= 1 and not getattr(self, '_budget_grace_call', False):
+                        self._budget_grace_call = True
 
                     # Reset per-turn retry counters after successful tool
                     # execution so a single truncation doesn't poison the
