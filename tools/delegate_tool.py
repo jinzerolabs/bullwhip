@@ -798,6 +798,10 @@ def _run_single_child(
             status = "failed"
 
         # Build tool trace from conversation messages (already in memory).
+        # Include action details and result previews so the parent model
+        # can understand WHAT the subagent did, not just which tools it called.
+        _TRACE_ACTION_LIMIT = 200   # max chars for action/args preview
+        _TRACE_RESULT_LIMIT = 500   # max chars for result preview
         tool_trace: list[Dict[str, Any]] = []
         trace_by_id: Dict[str, Dict[str, Any]] = {}
         messages = result.get("messages") or []
@@ -808,9 +812,24 @@ def _run_single_child(
                 if msg.get("role") == "assistant":
                     for tc in (msg.get("tool_calls") or []):
                         fn = tc.get("function", {})
+                        raw_args = fn.get("arguments", "")
+                        # Extract a human-readable action preview from args
+                        action_preview = ""
+                        try:
+                            args_dict = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+                            if isinstance(args_dict, dict):
+                                # Pick the most informative field
+                                for key in ("command", "query", "goal", "file_path",
+                                            "path", "url", "content", "code"):
+                                    if key in args_dict:
+                                        val = str(args_dict[key])
+                                        action_preview = val[:_TRACE_ACTION_LIMIT]
+                                        break
+                        except (json.JSONDecodeError, TypeError):
+                            pass
                         entry_t = {
                             "tool": fn.get("name", "unknown"),
-                            "args_bytes": len(fn.get("arguments", "")),
+                            "action": action_preview,
                         }
                         tool_trace.append(entry_t)
                         tc_id = tc.get("id")
@@ -821,7 +840,11 @@ def _run_single_child(
                     is_error = bool(
                         content and "error" in content[:80].lower()
                     )
+                    # Include a preview of the result so the parent model
+                    # knows what the tool returned
+                    result_preview = (content[:_TRACE_RESULT_LIMIT] + "…") if len(content) > _TRACE_RESULT_LIMIT else content
                     result_meta = {
+                        "result_preview": result_preview,
                         "result_bytes": len(content),
                         "status": "error" if is_error else "ok",
                     }
