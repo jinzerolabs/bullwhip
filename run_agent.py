@@ -4336,6 +4336,10 @@ class AIAgent:
             from agent.copilot_acp_client import CopilotACPClient
 
             client = CopilotACPClient(**client_kwargs)
+            # Wire up progress callback so ACP child events
+            # (tool calls, thinking) are relayed to the parent display.
+            if self.tool_progress_callback:
+                client.progress_callback = self.tool_progress_callback
             logger.info(
                 "Copilot ACP client created (%s, shared=%s) %s",
                 reason,

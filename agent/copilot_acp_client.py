@@ -279,6 +279,10 @@ class CopilotACPClient:
         self.is_closed = False
         self._active_process: subprocess.Popen[str] | None = None
         self._active_process_lock = threading.Lock()
+        # Optional callback for relaying ACP child progress events to
+        # the parent agent's display.  Set by AIAgent after construction.
+        # Signature: progress_callback(event_type, tool_name, preview, args, **kwargs)
+        self.progress_callback: Any = None
 
     def close(self) -> None:
         proc: subprocess.Popen[str] | None
@@ -506,8 +510,33 @@ class CopilotACPClient:
                 chunk_text = str(content.get("text") or "")
             if kind == "agent_message_chunk" and chunk_text and text_parts is not None:
                 text_parts.append(chunk_text)
+                # Relay streaming text to progress callback
+                if self.progress_callback:
+                    try:
+                        self.progress_callback("_thinking", chunk_text)
+                    except Exception:
+                        pass
             elif kind == "agent_thought_chunk" and chunk_text and reasoning_parts is not None:
                 reasoning_parts.append(chunk_text)
+                if self.progress_callback:
+                    try:
+                        self.progress_callback("reasoning.available", chunk_text)
+                    except Exception:
+                        pass
+            else:
+                # Relay tool progress and other ACP events.
+                # ToolCallStart updates include tool name and arguments
+                # in various formats — extract what we can.
+                _cb = self.progress_callback
+                if _cb and isinstance(content, dict):
+                    try:
+                        _tool_name = str(content.get("name") or content.get("tool") or "")
+                        _tool_args = content.get("arguments") or content.get("input") or {}
+                        _preview = str(content.get("text") or content.get("preview") or "")
+                        if _tool_name:
+                            _cb("tool.started", _tool_name, _preview, _tool_args)
+                    except Exception:
+                        pass
             return True
 
         if process.stdin is None:
