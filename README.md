@@ -5,17 +5,16 @@
 # Bull Whip Agent 🐂
 
 <p align="center">
-  <a href="https://bullwhip-agent.zerolabskorea.com/docs/"><img src="https://img.shields.io/badge/Docs-bullwhip--agent.zerolabskorea.com-FFD700?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://github.com/jinzerolabs/bullwhip/stargazers"><img src="https://img.shields.io/github/stars/jinzerolabs/bullwhip?style=for-the-badge&logo=github&color=yellow" alt="GitHub Stars"></a>
+  <a href="https://github.com/jinzerolabs/bullwhip/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge" alt="License: AGPL-3.0"></a>
   <a href="https://discord.gg/ZeroLabsKorea"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://github.com/ZeroLabsKorea/bullwhip-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge" alt="License: AGPL-3.0"></a>
-  <a href="https://zerolabskorea.com"><img src="https://img.shields.io/badge/Built%20by-ZeroLabs%20Korea-blueviolet?style=for-the-badge" alt="Built by ZeroLabs Korea"></a>
+  <a href="https://bullwhip-agent.zerolabskorea.com/docs/"><img src="https://img.shields.io/badge/Docs-Website-FFD700?style=for-the-badge" alt="Documentation"></a>
 </p>
 
-> **AI 에이전트의 매니저.** Bull Whip은 직접 코딩하지 않습니다.
-> [Claude Code](https://claude.ai/claude-code)와 [Codex](https://openai.com/codex)에게 채찍을 휘두르며 일을 시키는 **AI 관리자 에이전트**입니다.
-> 복잡한 작업을 분석하고, 서브에이전트에게 위임하고, 결과를 검증합니다 — 당신은 지시만 하면 됩니다.
+> **Bull Whip doesn't write code. It manages the AIs that do.**
+> It cracks the whip on [Claude Code](https://claude.ai/claude-code) and [Codex](https://openai.com/codex) — breaking down complex tasks, delegating to sub-agents in parallel, reviewing results, and learning from every session. You give the order. Bull Whip gets it done.
 
-**The self-improving AI agent built by [ZeroLabs Korea](https://zerolabskorea.com).** Bull Whip doesn't write code itself — it **delegates** to Claude Code and Codex, cracks the whip, and gets things done. It breaks down complex tasks, dispatches them to sub-agents in parallel, verifies results, and learns from every session. Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle. It's not tied to your laptop — talk to it from Telegram while it works on a cloud VM.
+The self-improving AI manager built by [ZeroLabs Korea](https://zerolabskorea.com). Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle. It's not tied to your laptop — talk to it from Telegram while it works on a cloud VM.
 
 ### How it works
 
@@ -197,13 +196,24 @@ python -m pytest tests/ -q
 
 ---
 
+## Star History
+
+If this project is useful to you, please consider giving it a star. It helps others discover it.
+
+<p align="center">
+  <a href="https://github.com/jinzerolabs/bullwhip/stargazers">
+    <img src="https://img.shields.io/github/stars/jinzerolabs/bullwhip?style=social" alt="Star on GitHub">
+  </a>
+</p>
+
+---
+
 ## Community
 
-- 💬 [Discord](https://discord.gg/ZeroLabsKorea)
-- 📚 [Skills Hub](https://agentskills.io)
-- 🐛 [Issues](https://github.com/ZeroLabsKorea/bullwhip-agent/issues)
-- 💡 [Discussions](https://github.com/ZeroLabsKorea/bullwhip-agent/discussions)
-- 🔌 [HermesClaw](https://github.com/AaronWong1999/hermesclaw) — Community WeChat bridge: Run Bull Whip Agent and OpenClaw on the same WeChat account.
+- [Discord](https://discord.gg/ZeroLabsKorea) — Chat, questions, and showcases
+- [Issues](https://github.com/jinzerolabs/bullwhip/issues) — Bug reports and feature requests
+- [Discussions](https://github.com/jinzerolabs/bullwhip/discussions) — Ideas and Q&A
+- [Contributing](CONTRIBUTING.md) — How to contribute
 
 ---
 

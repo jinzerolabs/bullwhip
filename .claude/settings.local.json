@@ -123,7 +123,10 @@
       "Bash(ls RELEASE_v*.md)",
       "Bash(ls website/docs/getting-started/)",
       "Bash(ls website/docs/reference/)",
-      "Bash(ls -la *.md)"
+      "Bash(ls -la *.md)",
+      "Bash(cat .git/description)",
+      "Bash(ls assets/)",
+      "Bash(ls .github/FUNDING.yml)"
     ]
   }
 }
