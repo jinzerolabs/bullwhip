@@ -8115,6 +8115,7 @@ class AIAgent:
         self._codex_incomplete_retries = 0
         self._thinking_prefill_retries = 0
         self._intent_nudge_count = 0
+        self._repetition_history: list = []  # track recent responses for stuck-loop detection
         self._last_content_with_tools = None
         self._mute_post_response = False
         self._unicode_sanitization_passes = 0
@@ -10492,10 +10493,41 @@ class AIAgent:
                         # to the new session (see preflight compression comment).
                         conversation_history = None
                     
+                    # ── Stuck-loop detection ──────────────────────
+                    # If the model keeps producing the same content across
+                    # consecutive turns (e.g. "Executing..." repeated), it's
+                    # stuck.  Break out after 3 identical responses.
+                    _visible = self._strip_think_blocks(
+                        assistant_message.content or ""
+                    ).strip().lower()[:200]
+                    if _visible:
+                        self._repetition_history.append(_visible)
+                        # Keep only last 4 entries
+                        if len(self._repetition_history) > 4:
+                            self._repetition_history = self._repetition_history[-4:]
+                        if (
+                            len(self._repetition_history) >= 3
+                            and len(set(self._repetition_history[-3:])) == 1
+                        ):
+                            _turn_exit_reason = "stuck_loop_detected"
+                            logger.warning(
+                                "Stuck loop detected: model repeated '%s' 3 times. Breaking.",
+                                _visible[:80],
+                            )
+                            self._emit_status(
+                                "⚠️ Model stuck in a loop — stopping to avoid infinite repetition"
+                            )
+                            final_response = (
+                                "I got stuck repeating the same action. "
+                                "Please try rephrasing your request or breaking it into smaller steps."
+                            )
+                            messages.append({"role": "assistant", "content": final_response})
+                            break
+
                     # Save session log incrementally (so progress is visible even if interrupted)
                     self._session_messages = messages
                     self._save_session_log(messages)
-                    
+
                     # Continue loop for next response
                     continue
                 
