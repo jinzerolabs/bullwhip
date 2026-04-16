@@ -182,7 +182,10 @@ TOOL_USE_ENFORCEMENT_GUIDANCE = (
     "the task, use them instead of telling the user what you would do.\n"
     "Every response should either (a) contain tool calls that make progress, or "
     "(b) deliver a final result to the user. Responses that only describe intentions "
-    "without acting are not acceptable."
+    "without acting are not acceptable.\n"
+    "When making tool calls, do NOT add filler text like 'Executing...', "
+    "'Running...', or 'Processing...' alongside each call. Just call the tool. "
+    "Only write text when you have results to report or a final answer."
 )
 
 # Model name substrings that trigger tool-use enforcement guidance.

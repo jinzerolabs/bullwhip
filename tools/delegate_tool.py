@@ -130,7 +130,11 @@ def _build_child_system_prompt(
         "Important workspace rule: Never assume a repository lives at /workspace/... or any other container-style path unless the task/context explicitly gives that path. "
         "If no exact local path is provided, discover it first before issuing git/workdir-specific commands.\n\n"
         "Be thorough but concise -- your response is returned to the "
-        "parent agent as a summary."
+        "parent agent as a summary.\n\n"
+        "IMPORTANT: When making tool calls, do NOT add filler text like "
+        "'Executing...', 'Running...', 'Processing...' alongside each tool call. "
+        "Just call the tool silently. Only write text when you have actual "
+        "results to report or when you are done."
     )
     return "\n".join(parts)
 
