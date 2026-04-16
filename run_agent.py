@@ -3301,6 +3301,28 @@ class AIAgent:
                     )
             except Exception:
                 pass
+        else:
+            # Non-manager mode: still teach the parent how to handle delegation
+            # results autonomously — retry on failure, only ask the user as
+            # a last resort.
+            if "delegate_task" in self.valid_tool_names:
+                prompt_parts.append(
+                    "## Delegation result handling\n\n"
+                    "When a subagent returns results via `delegate_task`:\n"
+                    "1. **Read the tool_trace carefully** — each entry has `action` (what the "
+                    "subagent ran) and `result_preview` (what it got back). Use these to "
+                    "understand what happened.\n"
+                    "2. **On failure or partial results** — analyze the error from the trace, "
+                    "then re-delegate with corrected instructions or additional context. "
+                    "Do NOT immediately ask the user what to do.\n"
+                    "3. **On blockers that need user action** (e.g. 'Docker Desktop is not "
+                    "running', 'missing API key', 'permission denied') — tell the user "
+                    "exactly what they need to do, with the specific command or step.\n"
+                    "4. **Retry up to 2 times** before involving the user. Each retry should "
+                    "include what went wrong and how to avoid it.\n"
+                    "5. **Never say 'the subagent failed'** without explaining WHY and "
+                    "WHAT the user should do about it."
+                )
 
         nous_subscription_prompt = build_nous_subscription_prompt(self.valid_tool_names)
         if nous_subscription_prompt:
