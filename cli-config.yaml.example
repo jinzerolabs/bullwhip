@@ -737,6 +737,9 @@ delegation:
   max_iterations: 50                          # Max tool-calling turns per child (default: 50)
   default_toolsets: ["terminal", "file", "web"]  # Default toolsets for subagents
   wall_clock_timeout: 900                     # Max seconds per subagent before timeout (default: 900 = 15 min)
+  # verbose_children: true                     # Show subagent's assistant text in real-time (default: false)
+  #                                            # When enabled, you see WHAT the subagent is thinking/saying,
+  #                                            # not just which tools it calls.
   # model: "google/gemini-3-flash-preview"    # Override model for subagents (empty = inherit parent)
   # provider: "openrouter"                    # Override provider for subagents (empty = inherit parent)
   #                                           # Resolves full credentials (base_url, api_key) automatically.

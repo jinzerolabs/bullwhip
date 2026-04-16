@@ -454,6 +454,35 @@ def _build_child_agent(
     except Exception as exc:
         logger.debug("Could not load delegation reasoning_effort: %s", exc)
 
+    # delegation.verbose_children: show child assistant content in real-time
+    # so users can follow the subagent's reasoning and decisions.
+    try:
+        _verbose_children = bool(_load_config().get("verbose_children", False))
+    except Exception:
+        _verbose_children = False
+
+    # When verbose, relay child's interim assistant messages to the parent
+    # display via spinner (CLI) or progress callback (gateway).
+    def _child_interim_cb(content: str, **kwargs):
+        """Surface child assistant text to the user in real-time."""
+        if not content or not content.strip():
+            return
+        text = content.strip()
+        if len(text) > 300:
+            text = text[:300] + "…"
+        if spinner:
+            try:
+                for line in text.split("\n")[:5]:  # max 5 lines
+                    spinner.print_above(f" {prefix}│ 💬 {line}")
+            except Exception:
+                pass
+        if parent_cb:
+            try:
+                parent_cb("subagent_progress",
+                          f"🔀 {prefix}💬 {text}")
+            except Exception:
+                pass
+
     child = AIAgent(
         base_url=effective_base_url,
         api_key=effective_api_key,
@@ -467,7 +496,7 @@ def _build_child_agent(
         reasoning_config=child_reasoning,
         prefill_messages=getattr(parent_agent, "prefill_messages", None),
         enabled_toolsets=child_toolsets,
-        quiet_mode=True,
+        quiet_mode=not _verbose_children,
         ephemeral_system_prompt=child_prompt,
         log_prefix=f"[subagent-{task_index}]",
         platform=parent_agent.platform,
@@ -475,6 +504,7 @@ def _build_child_agent(
         skip_memory=True,
         clarify_callback=None,
         thinking_callback=child_thinking_cb,
+        interim_assistant_callback=_child_interim_cb if _verbose_children else None,
         session_db=getattr(parent_agent, '_session_db', None),
         parent_session_id=getattr(parent_agent, 'session_id', None),
         providers_allowed=parent_agent.providers_allowed,
