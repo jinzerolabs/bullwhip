@@ -457,9 +457,9 @@ def _build_child_agent(
     # delegation.verbose_children: show child assistant content in real-time
     # so users can follow the subagent's reasoning and decisions.
     try:
-        _verbose_children = bool(_load_config().get("verbose_children", False))
+        _verbose_children = bool(_load_config().get("verbose_children", True))
     except Exception:
-        _verbose_children = False
+        _verbose_children = True
 
     # When verbose, relay child's interim assistant messages to the parent
     # display via spinner (CLI) or progress callback (gateway).
