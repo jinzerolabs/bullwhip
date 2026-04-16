@@ -380,11 +380,24 @@ def _build_child_agent(
     # so disabled tools (e.g. web) don't leak to subagents.
     # Note: enabled_toolsets=None means "all tools enabled" (the default),
     # so we must derive effective toolsets from the parent's loaded tools.
+    # In manager mode the parent deliberately restricts its OWN toolsets to
+    # delegation+clarify+memory, but children must still get full toolsets
+    # (terminal, file, web, etc.) — that's the whole point of delegation.
+    # Detect manager mode and skip the parent-intersection filter.
+    _is_manager_mode = False
+    try:
+        _is_manager_mode = bool(_load_config().get("manager_mode", False))
+    except Exception:
+        pass
+
     parent_enabled = getattr(parent_agent, "enabled_toolsets", None)
-    if parent_enabled is not None:
+    if _is_manager_mode:
+        # Manager mode: children get full default toolsets, not the parent's
+        # restricted set.  The parent can't use terminal/file, but children can.
+        parent_toolsets = set(TOOLSETS.keys()) - _EXCLUDED_TOOLSET_NAMES
+    elif parent_enabled is not None:
         parent_toolsets = set(parent_enabled)
     elif parent_agent and hasattr(parent_agent, "valid_tool_names"):
-        # enabled_toolsets is None (all tools) — derive from loaded tool names
         import model_tools
         parent_toolsets = {
             ts for name in parent_agent.valid_tool_names
@@ -394,8 +407,10 @@ def _build_child_agent(
         parent_toolsets = set(DEFAULT_TOOLSETS)
 
     if toolsets:
-        # Intersect with parent — subagent must not gain tools the parent lacks
         child_toolsets = _strip_blocked_tools([t for t in toolsets if t in parent_toolsets])
+    elif _is_manager_mode:
+        # Manager mode: give children the default working toolsets
+        child_toolsets = _strip_blocked_tools(DEFAULT_TOOLSETS)
     elif parent_agent and parent_enabled is not None:
         child_toolsets = _strip_blocked_tools(parent_enabled)
     elif parent_toolsets:
