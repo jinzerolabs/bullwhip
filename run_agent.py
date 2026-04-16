@@ -7399,8 +7399,11 @@ class AIAgent:
 
                 if self.tool_progress_callback:
                     try:
+                        # Pass a preview of the result so parent/UI can
+                        # display what the tool actually returned.
+                        _result_preview = (function_result[:200] + "…") if len(function_result) > 200 else function_result
                         self.tool_progress_callback(
-                            "tool.completed", function_name, None, None,
+                            "tool.completed", function_name, _result_preview, None,
                             duration=tool_duration, is_error=is_error,
                         )
                     except Exception as cb_err:
@@ -7756,8 +7759,9 @@ class AIAgent:
 
             if self.tool_progress_callback:
                 try:
+                    _result_preview = (function_result[:200] + "…") if len(function_result) > 200 else function_result
                     self.tool_progress_callback(
-                        "tool.completed", function_name, None, None,
+                        "tool.completed", function_name, _result_preview, None,
                         duration=tool_duration, is_error=_is_error_result,
                     )
                 except Exception as cb_err:
