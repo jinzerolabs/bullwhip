@@ -8212,6 +8212,7 @@ class AIAgent:
             except Exception:
                 pass
 
+        assistant_msg = None  # Initialise to avoid UnboundLocalError on early-exit paths
         while (api_call_count < self.max_iterations and self.iteration_budget.remaining > 0) or self._budget_grace_call:
             # Reset per-turn checkpoint dedup so each iteration can take one snapshot
             self._checkpoint_mgr.new_turn()
