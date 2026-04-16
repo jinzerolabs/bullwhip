@@ -3348,7 +3348,40 @@ class AIAgent:
                     "- Do NOT ask the user 'should I proceed?' — just proceed.\n"
                     "- Do NOT say 'I will do X' without actually doing it.\n"
                     "- When a subagent fails, include the EXACT error in the retry.\n"
-                    "- Keep going until ALL steps are done and verified."
+                    "- Keep going until ALL steps are done and verified.\n\n"
+
+                    "### Parallel execution with batch mode\n"
+                    "When multiple steps are INDEPENDENT (don't depend on each other), "
+                    "run them in parallel using `tasks` array:\n"
+                    "```json\n"
+                    '{"tasks": [\n'
+                    '  {"goal": "Create the React component", "acp_command": "claude", '
+                    '"acp_args": ["--acp", "--stdio"]},\n'
+                    '  {"goal": "Write unit tests", "acp_command": "claude", '
+                    '"acp_args": ["--acp", "--stdio"]},\n'
+                    '  {"goal": "Set up the API endpoint", "acp_command": "codex", '
+                    '"acp_args": ["--acp", "--stdio"]}\n'
+                    "]}\n"
+                    "```\n"
+                    "This runs up to 3 subagents at the same time.\n\n"
+
+                    "### Using Claude Code and Codex as workers\n"
+                    "You can spawn Claude Code or Codex as subagent workers:\n"
+                    "- **Claude Code** (`acp_command: 'claude'`): Best for complex tasks — "
+                    "architecture, debugging, multi-file refactoring, code review, "
+                    "security analysis, and research. Claude Code has built-in specialized "
+                    "agents (code reviewer, security auditor, explorer, planner) and uses "
+                    "them automatically.\n"
+                    "- **Codex** (`acp_command: 'codex'`): Best for fast, simple tasks — "
+                    "write a single file, add imports, rename variables, run a command. "
+                    "Keep Codex tasks small and independent.\n\n"
+                    "When to use which:\n"
+                    "- Complex/multi-file work → Claude Code (single task, full context)\n"
+                    "- Simple/repetitive tasks → Codex (batch of parallel small tasks)\n"
+                    "- Research/analysis → Claude Code\n"
+                    "- Testing/verification → either (Claude Code for complex, Codex for simple)\n\n"
+                    "If no `acp_command` is set, the subagent uses your own model. "
+                    "Use `acp_command` when you want a more capable worker."
                 )
 
         nous_subscription_prompt = build_nous_subscription_prompt(self.valid_tool_names)
