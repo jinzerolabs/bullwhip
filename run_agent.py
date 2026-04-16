@@ -3516,6 +3516,16 @@ class AIAgent:
                 f"not on any model name returned by the API."
             )
 
+        # Current working directory — so "파악해", "analyze this project",
+        # etc. resolve to the directory where bullwhip was launched.
+        _cwd = os.getenv("TERMINAL_CWD") or os.getcwd()
+        prompt_parts.append(
+            f"## Current working directory\n"
+            f"The user launched this session from: `{_cwd}`\n"
+            f"When the user says 'this project', 'current project', 'here', "
+            f"or similar, they mean this directory."
+        )
+
         # Environment hints (WSL, Termux, etc.) — tell the agent about the
         # execution environment so it can translate paths and adapt behavior.
         _env_hints = build_environment_hints()
