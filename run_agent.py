@@ -2046,8 +2046,52 @@ class AIAgent:
             marker in assistant_text for marker in workspace_markers
         )
         return (user_targets_workspace or assistant_targets_workspace) and assistant_mentions_action
-    
-    
+
+    def _looks_like_intent_without_action(self, response_text: str) -> bool:
+        """Use a lightweight LLM call to decide if the response merely
+        announces an intent to act (e.g. "I'll run the tests", "실행하겠습니다")
+        without actually doing anything.
+
+        Returns True when the LLM judges the response as an announcement
+        rather than a complete answer.  Falls back to False on any error
+        so the conversation is never blocked by a classification failure.
+        """
+        text = self._strip_think_blocks(response_text or "").strip()
+        if not text:
+            return False
+        # Long responses are almost certainly real answers
+        if len(text) > 1500:
+            return False
+
+        try:
+            from agent.auxiliary_client import call_llm as _call_llm
+
+            resp = _call_llm(
+                task="compression",  # reuse the cheapest auxiliary provider
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        "You are a classifier. Read the assistant message below and answer "
+                        "with ONLY the single word YES or NO.\n\n"
+                        "Question: Is this message merely announcing or promising a future "
+                        "action (e.g. 'I will run…', 'Let me check…', '실행하겠습니다') "
+                        "WITHOUT providing an actual result or answer?\n\n"
+                        "--- ASSISTANT MESSAGE ---\n"
+                        f"{text[:800]}\n"
+                        "--- END ---\n\n"
+                        "Answer (YES or NO):"
+                    ),
+                }],
+                temperature=0.0,
+                max_tokens=4,
+                timeout=10.0,
+            )
+            answer = (resp.choices[0].message.content or "").strip().upper()
+            return answer.startswith("YES")
+        except Exception as exc:
+            logger.debug("Intent classifier failed, skipping nudge: %s", exc)
+            return False
+
     def _extract_reasoning(self, assistant_message) -> Optional[str]:
         """
         Extract reasoning/thinking content from an assistant message.
@@ -7955,6 +7999,7 @@ class AIAgent:
         self._incomplete_scratchpad_retries = 0
         self._codex_incomplete_retries = 0
         self._thinking_prefill_retries = 0
+        self._intent_nudge_count = 0
         self._last_content_with_tools = None
         self._mute_post_response = False
         self._unicode_sanitization_passes = 0
@@ -10554,6 +10599,45 @@ class AIAgent:
                         continue
 
                     codex_ack_continuations = 0
+
+                    # ── Intent-without-action detection ───────────────
+                    # The model said it will do something ("I'll run…",
+                    # "실행하겠습니다", "진행합니다") but ended its turn
+                    # without making any tool calls.  Nudge it to
+                    # actually execute instead of just announcing.
+                    # Max 2 nudges to avoid infinite loops.
+                    if (
+                        self.valid_tool_names
+                        and getattr(self, '_intent_nudge_count', 0) < 2
+                        and self._looks_like_intent_without_action(final_response)
+                    ):
+                        self._intent_nudge_count = getattr(self, '_intent_nudge_count', 0) + 1
+                        logger.info(
+                            "Intent-without-action detected (nudge %d/2): %s",
+                            self._intent_nudge_count,
+                            final_response[:120],
+                        )
+                        self._emit_status(
+                            f"↻ Model announced intent without acting — nudging to execute "
+                            f"({self._intent_nudge_count}/2)"
+                        )
+                        interim_msg = self._build_assistant_message(assistant_message, "incomplete")
+                        messages.append(interim_msg)
+                        self._emit_interim_assistant_message(interim_msg)
+                        messages.append({
+                            "role": "user",
+                            "content": (
+                                "[System: You just described what you intend to do, but you "
+                                "did not make any tool calls. Do not describe or announce "
+                                "actions — execute them now by calling the appropriate tools. "
+                                "Act immediately.]"
+                            ),
+                        })
+                        self._session_messages = messages
+                        self._save_session_log(messages)
+                        continue
+                    # Reset on successful non-intent response
+                    self._intent_nudge_count = 0
 
                     if truncated_response_prefix:
                         final_response = truncated_response_prefix + final_response
