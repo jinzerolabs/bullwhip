@@ -1129,9 +1129,42 @@ def delegate_task(
     except ValueError as exc:
         return tool_error(str(exc))
 
+    # ── Auto-select default worker in manager mode ─────────────
+    # Weak parent models often forget to include acp_command in their
+    # delegate_task call.  When workers are configured and no acp_command
+    # is specified, automatically pick the first "complex" worker (or
+    # the first worker if none is tagged complex).  This ensures children
+    # always run via Claude Code / Codex instead of in-process.
+    _workers = cfg.get("workers") or {}
+    _is_manager = bool(cfg.get("manager_mode", False))
+    if _is_manager and _workers and not acp_command:
+        # Pick default: prefer role=complex, fallback to first worker
+        _default_worker = None
+        for _wname, _wcfg in _workers.items():
+            if not isinstance(_wcfg, dict):
+                continue
+            if _default_worker is None:
+                _default_worker = _wcfg
+            if _wcfg.get("role") == "complex":
+                _default_worker = _wcfg
+                break
+        if _default_worker:
+            acp_command = _default_worker.get("command")
+            acp_args = _default_worker.get("args", ["--acp", "--stdio"])
+            logger.info(
+                "Manager mode: auto-selected worker '%s' (no acp_command specified)",
+                acp_command,
+            )
+
     # Normalize to task list
     max_children = _get_max_concurrent_children()
     if tasks and isinstance(tasks, list):
+        # Auto-fill acp_command for batch tasks that don't specify one
+        if _is_manager and _workers:
+            for t in tasks:
+                if not t.get("acp_command") and acp_command:
+                    t["acp_command"] = acp_command
+                    t.setdefault("acp_args", acp_args)
         if len(tasks) > max_children:
             return tool_error(
                 f"Too many tasks: {len(tasks)} provided, but "
